@@ -1,0 +1,1997 @@
+// Planet Fluxus Copyright (C) 2013 Dave Griffiths
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////
+
+// a scheme compiler for javascript
+
+var zc = {};
+
+// match up cooresponding bracket to extract sexpr from a string
+zc.extract_sexpr = function(pos, str) {
+    var ret="";
+    var depth=0;
+    var count=0;
+    for (var i=pos; i<str.length; i++) {
+        if (str[i]==="(") {
+            depth++;
+        } else {
+            if (str[i]===")") {
+                depth--;
+            }
+        }
+        ret+=str[i];
+        if (depth===0) {
+            return ret;
+        }
+        count++;
+    }
+    return ret;
+};
+
+function white_space(s) {
+  return /\s/g.test(s);
+}
+
+zc.parse_tree = function(str) {
+    var state="none";
+    var in_quotes=false;
+    var in_comment=false;
+    var current_token="";
+    var ret=[];
+    var i=1;
+    while (i<str.length) {
+        switch (state) {
+        case "none": {
+            // look for a paren start
+            if (i>0 && str[i]==="(") {
+                var sexpr=zc.extract_sexpr(i, str);
+                ret.push(zc.parse_tree(sexpr));
+                i+=sexpr.length-1;
+            } else if (!white_space(str[i]) &&
+                       str[i]!=")") {
+                state="token";
+                current_token+=str[i];
+                if (str[i]==="\"") in_quotes = true;
+                if (str[i]===";") in_comment = true;
+            }
+        } break;
+
+        case "token": {
+            if (in_comment) {
+                if (str[i]==="\n") {
+                    state="none";
+                    in_comment=false;
+                }
+            }
+            else
+            {
+                if ((in_quotes && str[i]==="\"") ||
+                    (!in_quotes &&
+                     (str[i]===" " ||
+                      str[i]===")" ||
+                      str[i]==="\n"))) {
+                    state="none";
+                    if (in_quotes) {
+                        //console.log(current_token);
+                        ret.push(current_token+"\"");
+                    in_quotes=false;
+                    } else {
+                        if (current_token!="") {
+                            if (current_token=="#t") current_token="true";
+                            if (current_token=="#f") current_token="false";
+                            ret.push(current_token);
+                        }
+                    }
+                    current_token="";
+                } else {
+                    if (in_quotes) {
+                        current_token+=str[i];
+                    } else {
+                        switch (str[i]) {
+                        case "-":
+                            // don't convert - to _ in front of numbers...
+                            // (this should be less naive)
+                            if (i<str.length-1 &&
+                                !zc.char_is_number(str[i])) {
+                                current_token+="_";
+                            } else {
+                                current_token+=str[i];
+                            }
+                            break;
+                        case "?": current_token+="_q"; break;
+                        case "!": current_token+="_e"; break;
+                        default: current_token+=str[i];
+                        }
+                    }
+                }
+            }
+        } break;
+        }
+        i++;
+    }
+    return ret;
+};
+
+zc.car = function(l) { return l[0]; };
+
+zc.cdr = function(l) {
+    if (l.length<2) return [];
+    var r=[];
+    for (var i=1; i<l.length; i++) {
+        r.push(l[i]);
+    }
+    return r;
+};
+
+zc.cadr = function(l) {
+    return zc.car(zc.cdr(l));
+};
+
+zc.caddr = function(l) {
+    return zc.car(zc.cdr(zc.cdr(l)));
+};
+
+zc.list_map = function(fn, l) {
+    var r=[];
+    l.forEach(function (i) {
+        r.push(fn(i));
+    });
+    return r;
+};
+
+zc.list_contains = function(l,i) {
+    return l.indexOf(i) >= 0;
+};
+
+zc.sublist = function(l,s,e) {
+    var r=[];
+    if (e==null) e=l.length;
+    for (var i=s; i<e; i++) {
+        r.push(l[i]);
+    }
+    return r;
+};
+
+zc.infixify = function(jsfn, args) {
+    var cargs = [];
+    args.forEach(function(arg) { cargs.push(zc.comp(arg)); });
+    return "("+cargs.join(" "+jsfn+" ")+")";
+};
+
+zc.check = function(fn,args,min,max) {
+    if (args.length<min) {
+        zc.to_page("output", fn+" has too few args ("+args+")");
+        return false;
+    }
+    if (max!=-1 && args.length>max) {
+        zc.to_page("output", fn+" has too many args ("+args+")");
+        return false;
+    }
+    return true;
+};
+
+zc.comp_lambda = function(args) {
+    var expr=zc.cdr(args);
+    var nexpr=expr.length;
+    var last=expr[nexpr-1];
+    var eexpr=zc.sublist(expr,0,nexpr-1);
+    var lastc="";
+
+    if (zc.car(last)=="cond") {
+        lastc=zc.comp_cond_return(zc.cdr(last));
+    } else {
+        if (zc.car(last)=="if") {
+            lastc=zc.comp_if_return(zc.cdr(last));
+        } else {
+            if (zc.car(last)=="when") {
+                lastc=zc.comp_when_return(zc.cdr(last));
+            } else {
+                lastc="return "+zc.comp(last);
+            }
+        }
+    }
+
+    return "function ("+zc.car(args).join()+")\n"+
+        // adding semicolon here
+        "{"+zc.list_map(zc.comp,eexpr).join(";\n")+
+        "\n"+lastc+"\n}\n";
+};
+
+zc.comp_let = function(args) {
+    var fargs = zc.car(args);
+    largs = [];
+    fargs.forEach(function(a) { largs.push(a[0]); });
+    return "("+zc.comp_lambda([largs].concat(zc.cdr(args)))+"("+
+        zc.list_map(function(a) { return zc.comp(a[1]); },fargs)+" ))\n";
+};
+
+zc.comp_cond = function(args) {
+    if (zc.car(zc.car(args))==="else") {
+        return zc.comp(zc.cdr(zc.car(args)));
+    } else {
+        return "if ("+zc.comp(zc.car(zc.car(args)))+") {\n"+
+            zc.comp(zc.cadr(zc.car(args)))+"\n} else {\n"+
+            zc.comp_cond(zc.cdr(args))+"\n}";
+    }
+};
+
+zc.comp_cond_return = function(args) {
+    if (zc.car(zc.car(args))==="else") {
+        return "return "+zc.comp(zc.cdr(zc.car(args)));
+    } else {
+        return "if ("+zc.comp(zc.car(zc.car(args)))+") {\n"+
+            "return "+zc.comp(zc.cadr(zc.car(args)))+"\n} else {\n"+
+            zc.comp_cond_return(zc.cdr(args))+"\n}";
+    }
+};
+
+zc.comp_if = function(args) {
+    return "if ("+zc.comp(zc.car(args))+") {\n"+
+        zc.comp(zc.cadr(args))+"} else {"+
+        zc.comp(zc.caddr(args))+"}";
+};
+
+zc.comp_if_return = function(args) {
+    return "if ("+zc.comp(zc.car(args))+") {\n"+
+        "return "+zc.comp(zc.cadr(args))+"} else {"+
+        "return "+zc.comp(zc.caddr(args))+"}";
+};
+
+zc.comp_when = function(args) {
+    return "if ("+zc.comp(zc.car(args))+") {\n"+
+        zc.comp(zc.cdr(args))+"}";
+};
+
+zc.comp_when_return = function(args) {
+    return "if ("+zc.comp(zc.car(args))+") {\n"+
+        "return ("+zc.comp_lambda([[]].concat(zc.cdr(args)))+")() }";
+};
+
+zc.core_forms = function(fn, args) {
+    // core forms
+    if (fn == "lambda") if (zc.check(fn,args,2,-1)) return zc.comp_lambda(args);
+    if (fn == "if") if (zc.check(fn,args,3,3)) return zc.comp_if(args);
+    if (fn == "when") if (zc.check(fn,args,2,-1)) return zc.comp_when(args);
+    if (fn == "cond") if (zc.check(fn,args,2,-1)) return zc.comp_cond(args);
+    if (fn == "let") if (zc.check(fn,args,2,-1)) return zc.comp_let(args);
+
+    if (fn == "define") {
+        // adding semicolon here
+        if (zc.check(fn,args,2,-1)) return "var "+zc.car(args)+" = "+zc.comp(zc.cdr(args))+";";
+    }
+
+    if (fn == "list") {
+        return "["+zc.list_map(zc.comp,args).join(",")+"]";
+    }
+
+    if (fn == "begin") {
+        return "("+zc.comp_lambda([[]].concat(args))+")()";
+    }
+
+    if (fn == "list_ref") {
+        if (zc.check(fn,args,2,2)) return zc.comp(zc.car(args))+"["+zc.comp(zc.cadr(args))+"]";
+    }
+
+    if (fn == "list_replace") {
+        if (zc.check(fn,args,3,3))
+            return "(function() {"+
+            "var _list_replace="+zc.comp(zc.car(args))+"\n"+
+            "_list_replace["+zc.comp(zc.cadr(args))+"]="+
+            zc.comp(zc.caddr(args))+";\n"+
+            "return _list_replace;\n})()\n";
+    }
+
+    // iterative build-list version for optimisation
+    if (fn == "build_list") {
+        if (zc.check(fn,args,2,2))
+            return "(function() {\n"+
+            "var _build_list_l="+zc.comp(zc.car(args))+";\n"+
+            "var _build_list_fn="+zc.comp(zc.cadr(args))+";\n"+
+            "var _build_list_r= Array(_build_list_l);\n"+
+            "for (var _build_list_i=0; _build_list_i<_build_list_l; _build_list_i++) {\n"+
+            "_build_list_r[_build_list_i]=_build_list_fn(_build_list_i); }\n"+
+            "return _build_list_r; })()";
+    }
+
+    // iterative fold version for optimisation
+    if (fn == "foldl") {
+        if (zc.check(fn,args,3,3))
+            return "(function() {\n"+
+            "var _foldl_fn="+zc.comp(zc.car(args))+";\n"+
+            "var _foldl_val="+zc.comp(zc.cadr(args))+";\n"+
+            "var _foldl_src="+zc.comp(zc.caddr(args))+";\n"+
+            "for (var _foldl_i=0; _foldl_i<_foldl_src.length; _foldl_i++) {\n"+
+            "_foldl_val=_foldl_fn(_foldl_src[_foldl_i],_foldl_val); }\n"+
+            "return _foldl_val; })()";
+    }
+
+    if (fn == "list_q") {
+        if (zc.check(fn,args,1,1))
+            return "(Object.prototype.toString.call("+
+            zc.comp(zc.car(args))+") === '[object Array]')";
+    }
+
+    if (fn == "length") {
+        if (zc.check(fn,args,1,1)) return zc.comp(zc.car(args))+".length";
+    }
+
+    if (fn == "null_q") {
+        if (zc.check(fn,args,1,1)) return "("+zc.comp(zc.car(args))+".length==0)";
+    }
+
+    if (fn == "not") {
+        if (zc.check(fn,args,1,1))
+            return "!("+zc.comp(zc.car(args))+")";
+    }
+
+    if (fn == "cons") {
+        if (zc.check(fn,args,2,2))
+            return "["+zc.comp(zc.car(args))+"].concat("+zc.comp(zc.cadr(args))+")";
+    }
+
+    if (fn == "append") {
+        if (zc.check(fn,args,1,-1)) {
+            var r=zc.comp(zc.car(args));
+            for (var i=1; i<args.length; i++) {
+                r+=".concat("+zc.comp(args[i])+")";
+            }
+            return r;
+        }
+    }
+
+    if (fn == "car") {
+        if (zc.check(fn,args,1,1))
+            return zc.comp(zc.car(args))+"[0]";
+    }
+
+    if (fn == "cadr") {
+        if (zc.check(fn,args,1,1))
+            return zc.comp(zc.car(args))+"[1]";
+    }
+
+    if (fn == "caddr") {
+        if (zc.check(fn,args,1,1))
+            return zc.comp(zc.car(args))+"[2]";
+    }
+
+    if (fn == "cdr") {
+        if (zc.check(fn,args,1,1))
+            return "zc.sublist("+zc.comp(zc.car(args))+",1)";
+    }
+
+    if (fn == "eq_q") {
+        if (zc.check(fn,args,2,2))
+            return zc.comp(zc.car(args))+"=="+
+            zc.comp(zc.cadr(args));
+    }
+
+
+    var infix = [["+","+"],
+                 ["-","-"],
+                 ["*","*"],
+                 ["/","/"],
+                 ["%","%"],
+                 ["<","<"],
+                 [">",">"],
+                 ["<=","<="],
+                 [">=",">="],
+                 ["=","=="],
+                 ["and","&&"],
+                 ["or","||"],
+                 ["modulo","%"]];
+
+    for (var i=0; i<infix.length; i++) {
+        if (fn == infix[i][0]) return zc.infixify(infix[i][1],args);
+    }
+
+    if (fn == "set_e") {
+        if (zc.check(fn,args,2,2))
+            return zc.comp(zc.car(args))+"="+zc.comp(zc.cadr(args));
+    }
+
+    if (fn == "try") {
+        if (zc.check(fn,args,2,2))
+            return "try {"+zc.comp(zc.car(args))+"} catch (e) { "+zc.comp(zc.cadr(args))+" }";
+    }
+
+    // js intrinsics
+    if (fn == "js") {
+        if (zc.check(fn,args,1,1)) {
+            var v=zc.car(args);
+            // remove the quotes to insert the literal string
+            return v.substring(1,v.length-1);
+        }
+    }
+
+    if (fn == "new") {
+        return "new "+zc.car(args)+"( "+zc.comp(zc.cadr(args))+")";
+    }
+
+    return false;
+};
+
+zc.char_is_number = function(c) {
+    switch (c) {
+        case "0": return true; break;
+        case "1": return true; break;
+        case "2": return true; break;
+        case "3": return true; break;
+        case "4": return true; break;
+        case "5": return true; break;
+        case "6": return true; break;
+        case "7": return true; break;
+        case "8": return true; break;
+        case "9": return true; break;
+    }
+    return false;
+};
+
+zc.is_number = function(str) {
+    return zc.char_is_number(str[0]);
+};
+
+zc.comp = function(f) {
+//    console.log(f);
+    try {
+        // string, number or list?
+        if (typeof f == "string") return f;
+
+        // if null list
+        if (f.length==0) return "[]";
+
+        // apply args to function
+        if (typeof zc.car(f) == "string") {
+            // if it's a number
+            if (zc.is_number(zc.car(f))) return zc.car(f);
+            if (zc.car(f)[0]=="\"") return zc.car(f);
+
+            var fn=zc.car(f);
+            var args=zc.cdr(f);
+
+            // look for a core form
+            var r = zc.core_forms(fn,args);
+            if (r) return r;
+
+            // fallthrough to outer javascript environment
+            return fn+"("+zc.list_map(zc.comp,args).join()+")";
+        } else {
+            // plain list
+            return zc.list_map(zc.comp,f).join("\n");
+        }
+    } catch (e) {
+        zc.to_page("output", "An error in parsing occured on "+f.toString());
+        zc.to_page("output", e);
+        zc.to_page("output", e.stack);
+        return "";
+    }
+};
+
+zc.compile_code = function(scheme_code) {
+    var parse_tree=zc.parse_tree("("+scheme_code+")");
+//    alert(JSON.stringify(do_syntax(parse_tree)));
+    return zc.comp(do_syntax(parse_tree));
+};
+
+
+zc.compile_code_unparsed = function(scheme_code) {
+    var parse_tree=zc.parse_tree("("+scheme_code+")");
+    return zc.comp(parse_tree);
+};
+
+zc.load = function(url) {
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET", url, false );
+    xmlHttp.send( null );
+    var str=xmlHttp.responseText;
+    return "\n/////////////////// "+url+"\n"+zc.compile_code(str)+"\n";
+};
+
+zc.load_unparsed = function(url) {
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET", url, false );
+    xmlHttp.send( null );
+    var str=xmlHttp.responseText;
+    return "\n/////////////////// "+url+"\n"+zc.compile_code_unparsed(str)+"\n";
+};
+
+
+zc.to_page = function(id,html)
+{
+    var div=document.createElement("div");
+    div.id = "foo";
+    div.innerHTML = html;
+    document.getElementById(id).appendChild(div);
+    console.log(html);
+};
+
+function init() {
+
+    jQuery(document).ready(function($) {
+
+        // load and compile the syntax parser
+        var syntax_parse=zc.compile_code_unparsed(';; -*- mode: scheme; -*-\n\
+;; Planet Fluxus Copyright (C) 2013 Dave Griffiths\n\
+;;\n\
+;; This program is free software: you can redistribute it and/or modify\n\
+;; it under the terms of the GNU Affero General Public License as\n\
+;; published by the Free Software Foundation, either version 3 of the\n\
+;; License, or (at your option) any later version.\n\
+;;\n\
+;; This program is distributed in the hope that it will be useful,\n\
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of\n\
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n\
+;; GNU Affero General Public License for more details.\n\
+;;\n\
+;; You should have received a copy of the GNU Affero General Public License\n\
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.\n\
+\n\
+;; todo make data-driven and make define-syntax!\n\
+(define ret (lambda (code)\n\
+  (cond\n\
+   ((not (list? code)) code)\n\
+   ((null? code) ())\n\
+\n\
+   ;; with-state\n\
+   ((eq? (car code) "with_state")\n\
+    (append\n\
+     (list "begin" (list "push"))\n\
+      (list (list "let"\n\
+                  (list (list "r" (append (list "begin") (do-syntax (cdr code)))))\n\
+                  (list "pop") "r"))))\n\
+\n\
+   ;; with-primitive\n\
+   ((eq? (car code) "with_primitive")\n\
+    (append\n\
+     (list "begin" (list "grab" (cadr code)))\n\
+     (list (list "let"\n\
+                 (list (list "r" (append (list "begin") (do-syntax (cdr code)))))\n\
+                 (list "ungrab") "r"))))\n\
+\n\
+   ((eq? (car code) "every_frame")\n\
+    (append\n\
+     (list "every_frame_impl")\n\
+     (list\n\
+      (list "lambda" (list)\n\
+            (do-syntax (cdr code))))))\n\
+\n\
+\n\
+   ;; define a function\n\
+   ((and\n\
+     (eq? (car code) "define")\n\
+     (list? (cadr code)))\n\
+    (let ((name (car (cadr code)))\n\
+          (args (cdr (cadr code)))\n\
+          (body (do-syntax (cdr (cdr code)))))\n\
+      (list "define" name (append (list "lambda" args) body))))\n\
+\n\
+   (else (cons (do-syntax (car code))\n\
+               (do-syntax (cdr code)))))))\n\
+\n\
+ret\n\
+');
+        try {
+            //console.log(syntax_parse);
+            do_syntax=eval(syntax_parse);
+        } catch (e) {
+            zc.to_page("output", "An error occured parsing syntax of "+syntax_parse);
+            zc.to_page("output",e);
+            zc.to_page("output",e.stack);
+        }
+
+        var js=zc.compile_code(';; -*- mode: scheme; -*-\n\
+;; Planet Fluxus Copyright (C) 2013 Dave Griffiths\n\
+;;\n\
+;; This program is free software: you can redistribute it and/or modify\n\
+;; it under the terms of the GNU Affero General Public License as\n\
+;; published by the Free Software Foundation, either version 3 of the\n\
+;; License, or (at your option) any later version.\n\
+;;\n\
+;; This program is distributed in the hope that it will be useful,\n\
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of\n\
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n\
+;; GNU Affero General Public License for more details.\n\
+;;\n\
+;; You should have received a copy of the GNU Affero General Public License\n\
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.\n\
+\n\
+(console.log "base")\n\
+\n\
+(define zero?\n\
+  (lambda (n)\n\
+    (= n 0)))\n\
+\n\
+(define (random n)\n\
+  (Math.floor (* (Math.random) n)))\n\
+\n\
+(define (rndf) (Math.random))\n\
+\n\
+;; replaced by underlying iterative version\n\
+;;(define foldl\n\
+;;  (lambda (fn v l)\n\
+;;    (cond\n\
+;;     ((null? l) v)\n\
+;;     (else (foldl fn (fn (car l) v) (cdr l))))))\n\
+\n\
+(define map\n\
+  (lambda (fn l)\n\
+    (foldl\n\
+     (lambda (i r)\n\
+       (append r (list (fn i))))\n\
+     ()\n\
+     l)))\n\
+\n\
+(define filter\n\
+  (lambda (fn l)\n\
+    (foldl\n\
+     (lambda (i r)\n\
+       (if (fn i) (append r (list i)) r))\n\
+     ()\n\
+     l)))\n\
+\n\
+(define for-each\n\
+  (lambda (fn l)\n\
+    (foldl\n\
+     (lambda (i r)\n\
+       (fn i))\n\
+     ()\n\
+     l)\n\
+    #f))\n\
+\n\
+(define display (lambda (str) (console.log str)))\n\
+\n\
+(define newline (lambda () 0))\n\
+\n\
+(define list-equal?\n\
+  (lambda (a b)\n\
+    (define _\n\
+      (lambda (a b)\n\
+        (cond\n\
+         ((null? a) #t)\n\
+         ((not (eq? (car a) (car b))) #f)\n\
+         (else (_ (cdr a) (cdr b))))))\n\
+    (if (eq? (length a) (length b))\n\
+        (_ a b) #f)))\n\
+\n\
+;; replaced by js version\n\
+;;(define build-list\n\
+;;  (lambda (n fn)\n\
+;;    (define _\n\
+;;      (lambda (i)\n\
+;;        (cond\n\
+;;         ((eq? i (- n 1)) ())\n\
+;;         (else\n\
+;;          (cons (fn n) (_ (+ i 1) fn))))))\n\
+;;    (_ 0)))\n\
+\n\
+(define print-list\n\
+  (lambda (l)\n\
+    (when (not (null? l))\n\
+          (console.log (car l))\n\
+          (print-list (cdr l)))))\n\
+\n\
+(define factorial\n\
+  (lambda (n)\n\
+    (if (= n 0) 1\n\
+        (* n (factorial (- n 1))))))\n\
+\n\
+(define a 0)\n\
+\n\
+(define unit-test\n\
+  (lambda ()\n\
+    (display "unit tests running...")\n\
+    (set! a 10)\n\
+    (when (not (eq? 4 4)) (display "eq? failed"))\n\
+    (when (eq? 2 4) (display "eq?(2) failed"))\n\
+    (when (not (eq? (car (list 3 2 1)) 3)) (display "car failed"))\n\
+    (when (not (eq? (cadr (list 3 2 1)) 2)) (display "cadr failed"))\n\
+    (when (not (eq? (caddr (list 3 2 1)) 1)) (display "caddr failed"))\n\
+\n\
+    (when (not (eq? (begin 1 2 3) 3)) (display "begin failed"))\n\
+    (when (not (eq? (list-ref (list 1 2 3) 2) 3)) (display "list-ref failed"))\n\
+    (when (not (list? (list 1 2 3))) (display "list? failed"))\n\
+    (when (list? 3) (display "list?(2) failed"))\n\
+    (when (null? (list 1 2 3)) (display "null? failed"))\n\
+    (when (not (null? (list))) (display "null?(2) failed"))\n\
+    (when (not (eq? (length (list 1 2 3 4)) 4)) (display "length failed"))\n\
+    (when (not (list-equal? (list 1 2 3 4) (list 1 2 3 4))) (display "list-equal failed"))\n\
+    (when (list-equal? (list 1 2 3 4) (list 1 4 3 4)) (display "list-equal(2) failed"))\n\
+    (when (not (list-equal? (append (list 1 2 3) (list 4 5 6)) (list 1 2 3 4 5 6)))\n\
+          (display "append failed"))\n\
+    (when (not (list-equal? (cdr (list 3 2 1)) (list 2 1))) (display "cdr failed"))\n\
+    (when (not (list-equal? (cons 1 (list 2 3)) (list 1 2 3))) (display "cons failed"))\n\
+    (when (not (eq? (foldl (lambda (a r) (+ a r)) 0 (list 1 2 1 1)) 5))\n\
+          (display "fold failed"))\n\
+    (when (not (list-equal? (map (lambda (i) (+ i 1)) (list 1 2 3 4)) (list 2 3 4 5)))\n\
+          (display "map failed"))\n\
+    (when (not (eq? (let ((a 1) (b 2) (c 3)) (+ a b c)) 6)) (display "let failed"))\n\
+    (when (not (eq? (let ((a 1) (b 2) (c 3)) (list 2 3) (+ a b c)) 6)) (display "let(2) failed"))\n\
+    (when (not (eq? a 10)) (display "set! failed"))\n\
+    (when (not (eq? (factorial 10) 3628800)) (display "factorial test failed"))\n\
+    (when (not (eq? (list-ref (list-replace (list 1 2 3) 2 4) 2) 4)) (display "list-replace failed"))\n\
+    (when (not (list-equal? (build-list 10 (lambda (n) n)) (list 0 1 2 3 4 5 6 7 8 9)))\n\
+          (display "build-list failed"))\n\
+    (when (eq? (not (+ 200 3)) 203) (display "+ failed"))\n\
+    ))\n\
+\n\
+(unit-test)\n\
+');
+        js+=zc.compile_code(';; -*- mode: scheme; -*-\n\
+;; little canvas engine\n\
+;; (C) 2013 David Griffiths\n\
+;; GPL Affero etc\n\
+\n\
+(js "; $.ajaxSetup ({\n\
+    cache: false\n\
+})")\n\
+\n\
+(define (server-call name argsl)\n\
+  ;; hack together a js object to send\n\
+   (define args\n\
+    (foldl\n\
+     (lambda (i r)\n\
+       (js "r[i[0]]=i[1]")\n\
+       r)\n\
+     (js "{}")\n\
+     argsl))\n\
+  (set! args.function_name name)\n\
+  (console.log args)\n\
+  (let ((v ($.get "game" args)))\n\
+    (v.fail (lambda (jqXHR textStatus errorThrown)\n\
+              (console.log textStatus)\n\
+              (console.log errorThrown)))))\n\
+\n\
+ (define (server-call-mutate name argsl f)\n\
+   ;; hack together a js object to send\n\
+   (define args\n\
+    (foldl\n\
+     (lambda (i r)\n\
+       (js "r[i[0]]=i[1]")\n\
+       r)\n\
+     (js "{}")\n\
+     argsl))\n\
+  (set! args.function_name name)\n\
+  (console.log args)\n\
+  (let ((v ($.get "game" args (mutate-game f))))\n\
+    (v.fail (lambda (jqXHR textStatus errorThrown)\n\
+              (console.log textStatus)\n\
+              (console.log errorThrown)))))\n\
+\n\
+\n\
+(define (choose l)\n\
+  (list-ref l (random (length l))))\n\
+\n\
+(define (delete-n l n)\n\
+  (if (eq? n 0)\n\
+      (cdr l)\n\
+      (append (list (car l)) (delete-n (cdr l) (- n 1)))))\n\
+\n\
+(define shuffle\n\
+  (lambda (l)\n\
+    (if (< (length l) 2)\n\
+        l\n\
+        (let ((item (random (length l))))\n\
+          (cons (list-ref l item)\n\
+                (shuffle (delete-n l item)))))))\n\
+\n\
+(define (crop l n)\n\
+  (cond\n\
+   ((null? l) ())\n\
+   ((zero? n) ())\n\
+   (else (cons (car l) (crop (cdr l) (- n 1))))))\n\
+\n\
+(define (transform x y r s) (list x y r s))\n\
+\n\
+(define (transform-x t) (list-ref t 0))\n\
+(define (transform-y t) (list-ref t 1))\n\
+\n\
+(define (play-sound sound)\n\
+ (let ((snd (new Audio sound)))\n\
+    (snd.play)))\n\
+\n\
+(define image-lib ())\n\
+\n\
+(define (load-image-mutate fn filename)\n\
+  (let ((image (js "new Image()")))\n\
+    (set! image.onload\n\
+          (mutate-game\n\
+           (lambda (c)\n\
+             (set! image-lib (cons (list filename image) image-lib))\n\
+             (fn c))))\n\
+    (set! image.src (+ "images/" filename))))\n\
+\n\
+(define (load-image! fn finished images)\n\
+  (let ((image (js "new Image()")))\n\
+    (set! image.onload\n\
+          (lambda ()\n\
+            ;;(console.log (+ "loaded " (+ "images/" fn)))\n\
+            (set! image-lib (cons (list fn image) image-lib))\n\
+            (ctx.clearRect 0 0 screen-width screen-height)\n\
+            (set! ctx.font "normal 75pt gnuolane")\n\
+            (centre-text ctx "Loading..." 240)\n\
+            (centre-text\n\
+             ctx\n\
+             (+ "" (Math.floor (* (/ (length image-lib)\n\
+                                     (length images)) 100)) "%")  340)\n\
+            (when (eq? (length image-lib)\n\
+                       (length images))\n\
+                  (finished))))\n\
+;;    (console.log (+ "loading " (+ "images/" fn)))\n\
+    (set! image.src (+ "images/" fn))))\n\
+\n\
+(define (load-images! l finished)\n\
+  (for-each\n\
+   (lambda (fn)\n\
+     (load-image! fn finished l))\n\
+   l))\n\
+\n\
+(define (find-image fn l)\n\
+  (cond\n\
+   ((null? l) #f)\n\
+   ((eq? (car (car l)) fn) (cadr (car l)))\n\
+   (else (find-image fn (cdr l)))))\n\
+\n\
+;; ----------------------------------------\n\
+\n\
+(define (centre-text ctx txt y)\n\
+  (let ((m (ctx.measureText txt)))\n\
+    (ctx.fillText txt (- (/ screen-width 2) (/ m.width 2)) y)))\n\
+\n\
+(define (wrap-text ctx text x y max-width line-height)\n\
+  (define (wrap-text-inner words line y)\n\
+    (cond\n\
+     ((null? words)\n\
+      (centre-text ctx line y))\n\
+     (else\n\
+      (begin\n\
+        (define test-line (+ line (car words) " "))\n\
+        (define metrics (ctx.measureText test-line))\n\
+        (if (> metrics.width max-width)\n\
+            ;; todo cond returning too early...\n\
+            (begin\n\
+              (centre-text ctx line y)\n\
+              (wrap-text-inner (cdr words)\n\
+                               (+ (car words) " ")\n\
+                               (+ y line-height)))\n\
+            (begin\n\
+              (wrap-text-inner\n\
+               (cdr words) test-line y)))))))\n\
+  (wrap-text-inner (text.split " ") "" y))\n\
+\n\
+(define (sprite x y image timer)\n\
+  (list x y image timer))\n\
+\n\
+(define (sprite-x s) (list-ref s 0))\n\
+(define (sprite-y s) (list-ref s 1))\n\
+(define (sprite-modify-x s v) (list-replace s 0 v))\n\
+(define (sprite-modify-y s v) (list-replace s 1 v))\n\
+(define (sprite-image s) (list-ref s 2))\n\
+(define (sprite-timer s) (list-ref s 3))\n\
+\n\
+(define (sprite-render ctx t s)\n\
+  (when (< t (sprite-timer s))\n\
+        (ctx.save)\n\
+        (ctx.translate (sprite-x s) (sprite-y s))\n\
+        (ctx.drawImage\n\
+         (find-image (sprite-image s) image-lib)\n\
+         0 0)\n\
+        (ctx.restore)))\n\
+\n\
+;; ----------------------------------------\n\
+\n\
+(define (rect-button name x y w h jitter callback)\n\
+      (list "rect-button" name x y w h\n\
+            jitter callback #f (rndf)))\n\
+\n\
+(define (image-button name x y jitter image-name callback)\n\
+    (let ((image (find-image image-name image-lib)))\n\
+      (list "image-button"\n\
+            name x y\n\
+            image.width\n\
+            image.height\n\
+            jitter callback image-name\n\
+            (rndf)))))\n\
+\n\
+(define (circle-button name x y r callback)\n\
+  (list "circle-button" name x y r r #f callback #f (rndf)))\n\
+\n\
+(define (button-type b) (list-ref b 0))\n\
+(define (button-name b) (list-ref b 1))\n\
+(define (button-x b) (list-ref b 2))\n\
+(define (button-y b) (list-ref b 3))\n\
+(define (button-w b) (list-ref b 4))\n\
+(define (button-r b) (list-ref b 4))\n\
+(define (button-h b) (list-ref b 5))\n\
+(define (button-jitter b) (list-ref b 6))\n\
+(define (button-callback b) (list-ref b 7))\n\
+(define (button-image b) (list-ref b 8))\n\
+(define (button-offs b) (list-ref b 9))\n\
+\n\
+(define (dist-2d x1 y1 x2 y2)\n\
+  (let ((x (- x2 x1))\n\
+        (y (- y2 y1)))\n\
+    (Math.sqrt (+ (* x x) (* y y)))))\n\
+\n\
+(define (in-rect? x y w h xx yy)\n\
+  (and (> xx x)\n\
+       (< xx (+ x w))\n\
+       (> yy y)\n\
+       (< yy (+ y h))))\n\
+\n\
+(define (in-circle? x y r xx yy)\n\
+  (< (dist-2d xx yy x y) r))\n\
+\n\
+(define (rect-button-update! b mx my c)\n\
+  (if (in-rect? (button-x b) (button-y b)\n\
+                (button-w b) (button-h b)\n\
+                mx my)\n\
+      (let ((fn (button-callback b)))\n\
+        (list #t (fn c)))\n\
+      (list #f c)))\n\
+\n\
+(define (circle-button-update! b mx my c)\n\
+  (if (in-circle? (button-x b) (button-y b)\n\
+                  (button-r b) mx my)\n\
+      (let ((fn (button-callback b)))\n\
+        (list #t (fn c)))\n\
+      (list #f c)))\n\
+\n\
+(define (button-update! b mx my c)\n\
+  (cond\n\
+   ((eq? (button-type b) "rect-button")\n\
+    (rect-button-update! b mx my c))\n\
+   ((eq? (button-type b) "image-button")\n\
+    (rect-button-update! b mx my c))\n\
+   (else\n\
+    (circle-button-update! b mx my c))))\n\
+\n\
+(define (rect-button-render! ctx t b)\n\
+  (when #f\n\
+        (ctx.save)\n\
+        (ctx.translate (button-x b) (button-y b))\n\
+        (when (button-jitter b)\n\
+              (ctx.translate (/ (button-w b) 2)\n\
+                             (/ (button-h b) 2))\n\
+              (ctx.rotate (* 0.2 (- (rndf) 0.5)))\n\
+              (ctx.scale (+ 1 (* 0.2 (- (rndf) 0.5)))\n\
+                         (+ 1 (* 0.2 (- (rndf) 0.5))))\n\
+              (ctx.translate (- 0 (/ (button-w b) 2))\n\
+                       (- 0 (/ (button-h b) 2))))\n\
+\n\
+        (set! ctx.strokeStyle "#fff")\n\
+        (ctx.strokeRect\n\
+         0 0 (button-w b) (button-h b))\n\
+        (ctx.fillText (button-name b) (/ (button-w b) 2) (+ 20 (/ (button-h b) 2)))\n\
+        (ctx.restore)\n\
+        ))\n\
+\n\
+(define (image-button-render! ctx t b)\n\
+  (ctx.save)\n\
+  (ctx.translate (button-x b) (button-y b))\n\
+  (when (button-jitter b)\n\
+        (ctx.translate (/ (button-w b) 2)\n\
+                       (/ (button-h b) 2))\n\
+        (ctx.rotate (* 0.05 (Math.sin (+ (* (button-offs b) 10) (* t 0.01)))))\n\
+        ;;(ctx.scale (+ 1 (* 0.2 (- (rndf) 0.5)))\n\
+        ;;           (+ 1 (* 0.2 (- (rndf) 0.5))))\n\
+        (ctx.translate (- 0 (/ (button-w b) 2))\n\
+                       (- 0 (/ (button-h b) 2))))\n\
+\n\
+  (ctx.drawImage\n\
+   (find-image (button-image b) image-lib)\n\
+   0 0)\n\
+\n\
+  (set! ctx.fillStyle "#fff")\n\
+  (set! ctx.font "bold 30pt gnuolane")\n\
+\n\
+  (let ((m (ctx.measureText (button-name b))))\n\
+    (ctx.fillText\n\
+     (button-name b)\n\
+     (- (/ (button-w b) 2) (/ m.width 2))\n\
+     (+ (/ (button-h b) 2) 5)))\n\
+  (ctx.restore))\n\
+\n\
+\n\
+(define (circle-button-render! ctx t b)\n\
+  (ctx.beginPath)\n\
+  (ctx.arc (button-x b) (button-y b)\n\
+           (button-r b) 0 (* Math.PI 2) true)\n\
+  (ctx.closePath)\n\
+  (set! ctx.strokeStyle "#fff")\n\
+  (ctx.stroke))\n\
+\n\
+(define (button-render! ctx t b)\n\
+  (cond\n\
+   ((eq? (button-type b) "rect-button")\n\
+    (rect-button-render! ctx t b))\n\
+   ((eq? (button-type b) "image-button")\n\
+    (image-button-render! ctx t b))\n\
+   (else\n\
+    (circle-button-render! ctx t b))))\n\
+\n\
+;; ----------------------------------------\n\
+\n\
+(define (button-list b)\n\
+  b)\n\
+\n\
+(define (button-inner-update b mx my c)\n\
+  (foldl\n\
+   (lambda (b r)\n\
+     (if (not (car r)) ;; if event not handled\n\
+         (button-update! b mx my (cadr r))\n\
+         (js "r")))\n\
+   (list #f c)\n\
+   b))\n\
+\n\
+(define (buttons-update b mx my c)\n\
+  (let ((r (button-inner-update b mx my c)))\n\
+    (cadr r)))\n\
+\n\
+(define (buttons-render! ctx t b)\n\
+  (for-each\n\
+   (lambda (b)\n\
+     (button-render! ctx t b))\n\
+   b))\n\
+\n\
+;; ----------------------------------------\n\
+\n\
+(define (make-new-game)\n\
+  (list 0\n\
+        (lambda (ctx)\n\
+          0)\n\
+        (lambda (t c)\n\
+          c)\n\
+        ()\n\
+        0\n\
+        0\n\
+        ()))\n\
+\n\
+(define (game-time g) (list-ref g 0))\n\
+(define (game-modify-time v g) (list-replace g 0 v))\n\
+(define (game-render g) (list-ref g 1))\n\
+(define (game-modify-render v g) (list-replace g 1 v))\n\
+(define (game-update g) (list-ref g 2))\n\
+(define (game-modify-update v g) (list-replace g 2 v))\n\
+(define (game-buttons g) (list-ref g 3))\n\
+(define (game-modify-buttons v g) (list-replace g 3 v))\n\
+(define (game-data g) (list-ref g 4))\n\
+(define (game-modify-data fn g) (list-replace g 4 (fn (game-data g))))\n\
+(define (game-mx g) (list-ref g 5))\n\
+(define (game-modify-mx v g) (list-replace g 5 v))\n\
+(define (game-my g) (list-ref g 6))\n\
+(define (game-modify-my v g) (list-replace g 6 v))\n\
+\n\
+(define (game-input g mx my)\n\
+  (buttons-update (game-buttons g) mx my\n\
+                  (game-modify-mx\n\
+                   mx (game-modify-my my g))))\n\
+\n\
+;; ----------------------------------------\n\
+\n\
+(define (top-update-game t game)\n\
+  (let ((fn (game-update game)))\n\
+    (set! game (game-modify-time\n\
+                t (fn t game)))))\n\
+\n\
+(define (top-render-game ctx game)\n\
+  (let ((fn (game-render game)))\n\
+    (fn ctx)))\n\
+\n\
+(define (top-render)\n\
+  (when (not (eq? game 0))\n\
+        (ctx.clearRect 0 0 screen-width screen-height)\n\
+        (let ((t (- (js "new Date()") load-time)))\n\
+          (set! ctx.font "bold 10pt courier")\n\
+          (set! ctx.fillStyle "#fff");\n\
+;;          (ctx.fillText (+ "Time is: " t) 10 750)\n\
+          (set! ctx.font "75pt stefanie")\n\
+          (top-update-game t game)\n\
+          (top-render-game ctx game)\n\
+          (buttons-render! ctx t (game-buttons game)))\n\
+        (requestAnimFrame top-render ctx)))\n\
+\n\
+(define game 0)\n\
+\n\
+(define (mouse-from-event g canvas e)\n\
+  (let ((rect (canvas.getBoundingClientRect)))\n\
+    (let ((sx (/ rect.width screen-width))\n\
+          (sy (/ rect.height screen-height)))\n\
+      (list (/ (- e.clientX rect.left) sx)            \n\
+            (/ (- e.clientY rect.top) sy)))))\n\
+\n\
+(define (touch-from-event g canvas e)\n\
+  (let ((e (car e.targetTouches)))\n\
+    (mouse-from-event g canvas e)))\n\
+\n\
+(define touchscreen 0)\n\
+\n\
+(define (start-game canvas ctx)\n\
+  (ctx.clearRect 0 0 screen-width screen-height)\n\
+\n\
+  (canvas.addEventListener\n\
+   "mousedown"\n\
+   (lambda (e)\n\
+     (when (zero? touchscreen)\n\
+           (let ((m (mouse-from-event game canvas e)))\n\
+             (set! game (game-input game (car m) (cadr m)))))))\n\
+\n\
+  (canvas.addEventListener\n\
+   "touchstart"\n\
+   (lambda (e)\n\
+     (e.preventDefault)\n\
+     (set! touchscreen 1)\n\
+     (let ((m (touch-from-event game canvas e)))\n\
+       (set! game (game-input game (car m) (cadr m))))))\n\
+\n\
+\n\
+  (console.log "building game")\n\
+  ;; todo - pass in game specific func\n\
+  (set! game (nightjar-intro (make-new-game)))\n\
+  (requestAnimFrame top-render ctx))\n\
+\n\
+(define (mutate-game f)\n\
+  (lambda (data)\n\
+    (set! game (f game data))))\n\
+\n\
+;; ----------------------------------------\n\
+\n\
+(console.log "started nightjar game")\n\
+\n\
+(define canvas (document.getElementById "canvas"))\n\
+(define ctx (canvas.getContext "2d"))\n\
+\n\
+;(define screen-width 1024)\n\
+;(define screen-height 768)\n\
+(define screen-width (* 1024 1.3))\n\
+(define screen-height (* 768 1.3))\n\
+\n\
+\n\
+(define load-time (js "new Date()"))\n\
+\n\
+(set! ctx.fillStyle "#fff")\n\
+(set! ctx.strokeStyle "#000")\n\
+\n\
+');
+        js+=zc.compile_code(';; -*- mode: scheme; -*-\n\
+; ------------------------------------------------\n\
+; nightjar specific stuff\n\
+\n\
+(js ";")\n\
+(console.log "game")\n\
+\n\
+\n\
+(define filenames\n\
+  (list\n\
+   "Reflectance_CF003_V_rgb_0.46-r.jpg"\n\
+   "Reflectance_CF004_V_rgb_0.63-r.jpg"\n\
+   "Reflectance_CF005_V_rgb_0.53-r.jpg"\n\
+   "Reflectance_CF006_V_rgb_0.57-r.jpg"\n\
+   "Reflectance_CF007_V_rgb_0.61-r.jpg"\n\
+   "Reflectance_CF008_V_rgb_0.41-r.jpg"\n\
+   "Reflectance_CF009_V_rgb_0.69-r.jpg"\n\
+   "Reflectance_CF010_V_rgb_0.49-r.jpg"\n\
+   "Reflectance_CF011_V_rgb_0.43-r.jpg"\n\
+   "Reflectance_CF012_V_rgb_0.41-r.jpg"\n\
+   "Reflectance_CF013_V_rgb_0.56-r.jpg"\n\
+   "Reflectance_CF014_V_rgb_0.67-r.jpg"\n\
+   "Reflectance_CF015_V_Rgb_0.65-r.jpg"\n\
+   "Reflectance_CF017_V_rgb_0.54-r.jpg"\n\
+   "Reflectance_CF020_V_rgb_0.47-r.jpg"\n\
+   "Reflectance_CF021_V_rgb_0.52-r.jpg"\n\
+   "Reflectance_CF022_V_rgb_0.52-r.jpg"\n\
+   "Reflectance_CF024_V_rgb_0.57-r.jpg"\n\
+   "Reflectance_CF025_V_rgb_0.33-r.jpg"\n\
+   "Reflectance_CF026_V_rgb_0.55-r.jpg"\n\
+   "Reflectance_CF027_V_rgb_0.45-r.jpg"\n\
+   "Reflectance_CF028_V_rgb_0.55-r.jpg"\n\
+   "Reflectance_CF030_V_rgb_0.47-r.jpg"\n\
+   "Reflectance_CF032_V_rgb_0.58-r.jpg"\n\
+   "Reflectance_CF035_V_rgb_0.50-r.jpg"\n\
+   "Reflectance_CF036_V_rgb_0.48-r.jpg"\n\
+\n\
+   "Reflectance_CP005_V_rgb_0.62-r.jpg"\n\
+   "Reflectance_CP007_V_rgb_0.40-r.jpg"\n\
+   "Reflectance_CP011_V_rgb_0.58-r.jpg"\n\
+   "Reflectance_CP014_V_rgb_0.36-r.jpg"\n\
+   "Reflectance_CP017_V_rgb_0.52-r.jpg"\n\
+   "Reflectance_CP018_V_Rgb_0.55-r.jpg"\n\
+   "Reflectance_CP020_V_rgb_0.44-r.jpg"\n\
+   "Reflectance_CP031_V_rgb_0.25-r.jpg"\n\
+\n\
+   "Reflectance_MV002_V_rgb_0.54-r.jpg"\n\
+   "Reflectance_MV004_V_rgb_0.40-r.jpg"\n\
+   "Reflectance_MV005_V_rgb_0.55-r.jpg"\n\
+   "Reflectance_MV006_V_rgb_0.44-r.jpg"\n\
+   "Reflectance_MV007_V_rgb_0.49-r.jpg"))\n\
+\n\
+(set! filenames\n\
+      (filenames.concat\n\
+       (map\n\
+        (lambda (fn)\n\
+          (+ "mongoose-" fn))\n\
+        filenames)))\n\
+\n\
+(define photos\n\
+  (map\n\
+   (lambda (fn)\n\
+     (+ "photos/" fn))\n\
+   filenames))\n\
+\n\
+(define (feather)\n\
+  (choose (list "feather1.png" "feather2.png" "feather3.png")))\n\
+\n\
+(define (nightjar-example file pos width height)\n\
+  (list file pos width height))\n\
+\n\
+(define (nightjar-example-file n) (list-ref n 0))\n\
+(define (nightjar-example-pos n) (list-ref n 1))\n\
+(define (nightjar-example-width n) (list-ref n 2))\n\
+(define (nightjar-example-height n) (list-ref n 3))\n\
+\n\
+;; get from image structure\n\
+(define image-width 2474)\n\
+(define image-height 1640)\n\
+(define image-centre-x (/ image-width 2))\n\
+(define image-centre-y (/ image-height 2))\n\
+\n\
+(define positions\n\
+  (list\n\
+   (list 932 790 454 134)\n\
+   (list 981 818 378 92)\n\
+   (list 904 768 465 139)\n\
+   (list 904 763 476 144)\n\
+   (list 1030 778 546 156)\n\
+   (list 917 751 488 157)  ;;  cf08\n\
+   (list 1008 766 328 119)\n\
+   (list 1153 783 466 119)\n\
+   (list 1095 763 406 118)\n\
+   (list 910 752 480 154)\n\
+   (list 1112 738 536 174) ;;  cf014\n\
+   (list 1093 773 423 114)\n\
+   (list 1140 766 332 133)\n\
+   (list 1077 743 345 110)\n\
+   (list 1126 738 354 129)\n\
+   (list 1075 761 259 101)\n\
+   (list 1108 775 369 98)\n\
+   (list 1047 783 351 103)\n\
+   (list 1016 721 422 166)\n\
+   (list 1000 766 405 132) ;;   cf26\n\
+   (list 1133 755 331 125)\n\
+   (list 1025 773 350 118)\n\
+   (list 1150 777 326 110)\n\
+   (list 1100 754 352 111)\n\
+   (list 1053 782 294 104)\n\
+   (list 1058 798 308 92)\n\
+   (list 1130 802 400 131)\n\
+   (list 963 751 449 133)\n\
+   (list 1059 766 505 156)\n\
+   (list 922 750 551 133)\n\
+   (list 994 740 408 167)\n\
+   (list 1091 779 408 119)\n\
+   (list 1151 717 342 126)\n\
+   (list 996 768 372 129)\n\
+   (list 970 753 387 129);;   mv02\n\
+   (list 1122 746 423 157);;  mv04\n\
+   (list 989 773 332 118)\n\
+   (list 936 764 447 173)\n\
+   (list 984 702 408 180)))\n\
+\n\
+(define (build-examples n)\n\
+  (cond\n\
+   ((zero? n) ())\n\
+   (else\n\
+    (let ((pos (list-ref positions (modulo n (length positions)))))\n\
+      (cons\n\
+       (nightjar-example\n\
+        (list-ref photos n)\n\
+        (list (list-ref pos 0) (list-ref pos 1))\n\
+        (list-ref pos 2)\n\
+        (list-ref pos 3))\n\
+       (build-examples (- n 1)))))))\n\
+\n\
+(define nightjar-examples (build-examples (- (length photos) 1)))\n\
+\n\
+(define safe-x 0.2)\n\
+(define safe-y 0.2)\n\
+\n\
+(define (generate-image-pos)\n\
+  (list (- (* screen-width (+ safe-x (* (rndf) (- 1 (* safe-x 2))))) image-centre-x)\n\
+        (- (* screen-height (+ safe-y (* (rndf) (- 1 (* safe-y 2))))) image-centre-y)))\n\
+\n\
+(define default-button-x (- (/ screen-width 2) 280))\n\
+(define default-button-y (+ (/ screen-height 2) 20))\n\
+(define button-gap 250)\n\
+(define game-time-allowed 30)\n\
+\n\
+(define (empty-nightjar-data)\n\
+  (list 0 0 0 "" #f 0 () () 0 (sprite 0 0 "wrong.png" 0)))\n\
+\n\
+(define (nightjar-start-time g) (list-ref g 0))\n\
+(define (nightjar-modify-start-time v g) (list-replace g 0 v))\n\
+(define (nightjar-photo-time g) (list-ref g 1))\n\
+(define (nightjar-modify-photo-time v g) (list-replace g 1 v))\n\
+(define (nightjar-player-id g) (list-ref g 2))\n\
+(define (nightjar-modify-player-id v g) (list-replace g 2 v))\n\
+(define (nightjar-player-type g) (list-ref g 3))\n\
+(define (nightjar-modify-player-type v g) (list-replace g 3 v))\n\
+(define (nightjar-played-before g) (list-ref g 4))\n\
+(define (nightjar-modify-played-before v g) (list-replace g 4 v))\n\
+(define (nightjar-player-age g) (list-ref g 5))\n\
+(define (nightjar-modify-player-age v g) (list-replace g 5 v))\n\
+(define (nightjar-images g) (list-ref g 6))\n\
+(define (nightjar-modify-images v g) (list-replace g 6 v))\n\
+(define (nightjar-image-pos g) (list-ref g 7))\n\
+(define (nightjar-modify-image-pos v g) (list-replace g 7 v))\n\
+(define (nightjar-score g) (list-ref g 8))\n\
+(define (nightjar-modify-score v g) (list-replace g 8 v))\n\
+(define (nightjar-sprite g) (list-ref g 9))\n\
+(define (nightjar-modify-sprite v g) (list-replace g 9 v))\n\
+\n\
+(define (nightjar-heading ctx txt)\n\
+  (set! ctx.fillStyle "#000")\n\
+  (set! ctx.font "normal 75pt stefanie")\n\
+  (ctx.save)\n\
+  (ctx.translate 4 4)\n\
+  (wrap-text ctx txt 100 200 1000 100)\n\
+  (ctx.restore)\n\
+  (set! ctx.fillStyle "#fff")\n\
+  (set! ctx.font "normal 75pt stefanie")\n\
+  (wrap-text ctx txt 100 200 1000 100))\n\
+\n\
+\n\
+(define (nightjar-text ctx txt)\n\
+  (set! ctx.font "bold 25pt gnuolane")\n\
+  (wrap-text ctx txt 100 400 1000 50))\n\
+\n\
+(define (nightjar-all-text ctx txt)\n\
+  (set! ctx.font "bold 50pt gnuolane")\n\
+  (wrap-text ctx txt 100 200 1000 75))\n\
+\n\
+(define (time-left c)\n\
+  (* (- (game-time c)\n\
+        (nightjar-start-time (game-data c)))\n\
+     0.001))\n\
+\n\
+(define (stroke-clock ctx c x y)\n\
+  (ctx.beginPath)\n\
+  (ctx.moveTo x y)\n\
+  (ctx.arc\n\
+   x y 50 (* Math.PI -0.5)\n\
+   (+ (* Math.PI -0.5)\n\
+      (/ (* (time-left c) Math.PI 2) game-time-allowed))\n\
+   true)\n\
+  (ctx.closePath))\n\
+\n\
+(define (nightjar-draw-clock ctx c)\n\
+  (set! ctx.lineWidth 4)\n\
+  (set! ctx.strokeStyle "#000")\n\
+  (stroke-clock ctx c 74 74)\n\
+  (ctx.stroke)\n\
+\n\
+  (stroke-clock ctx c 70 70)\n\
+  (set! ctx.fillStyle "rgba(1, 0, 0, 0.7)")\n\
+  (ctx.fill)\n\
+  (set! ctx.lineWidth 4)\n\
+  (set! ctx.strokeStyle "#f00")\n\
+  (ctx.stroke)\n\
+\n\
+  (set! ctx.lineWidth 1)\n\
+  (set! ctx.fillStyle "#fff")\n\
+  (set! ctx.font "normal 30pt gnuolane")\n\
+  (ctx.fillText (Math.floor (- game-time-allowed (time-left c))) 54 110))\n\
+\n\
+(define (nightjar-new-game c)\n\
+  (nightjar-game\n\
+   (game-modify-data\n\
+    (lambda (d)\n\
+      (nightjar-modify-start-time\n\
+       (game-time c) d))\n\
+    (game-modify-data\n\
+     (lambda (d)\n\
+       (nightjar-modify-image-pos\n\
+        (generate-image-pos)\n\
+        (nightjar-modify-sprite\n\
+         (sprite -999 -999 "right.png" 0)\n\
+         d)))\n\
+     c))))\n\
+\n\
+(define (nightjar-new-game-reset-timer n c)\n\
+  (load-image-mutate\n\
+   (lambda (c)\n\
+     (nightjar-new-game\n\
+      (game-modify-data\n\
+       (lambda (d)\n\
+         (nightjar-modify-images\n\
+          (cdr (nightjar-images d))\n\
+          (nightjar-modify-photo-time\n\
+           (game-time c) d)))\n\
+       c)))\n\
+   (nightjar-example-file (list-ref (nightjar-images (game-data c)) n)))\n\
+  (game-modify-buttons () c))\n\
+\n\
+(define (nightjar-new-game-images c)\n\
+  (define start 0)\n\
+  (when (eq? (nightjar-player-type (game-data c)) "monkey")\n\
+        (set! start 40))\n\
+  (play-sound "sound/button.wav")\n\
+\n\
+  (let ((images (crop (shuffle (slice nightjar-examples start 39)) 20)))\n\
+    (load-image-mutate\n\
+     (lambda (c)\n\
+       (nightjar-new-game\n\
+        (game-modify-data\n\
+         (lambda (d)\n\
+           (nightjar-modify-photo-time\n\
+            (game-time c)\n\
+            (nightjar-modify-images images d)))\n\
+         c)))\n\
+     (nightjar-example-file (list-ref images 0)))\n\
+    (game-modify-buttons () c)))\n\
+\n\
+(define (nightjar-intro c)\n\
+  (let ((icon-x 150))\n\
+  (game-modify-data\n\
+   (lambda (d)\n\
+     (empty-nightjar-data))\n\
+   (game-modify-render\n\
+    (lambda (ctx)\n\
+      (nightjar-heading ctx "Where is that nightjar")\n\
+      (nightjar-text ctx "Hunt nightjars and help us with our research")\n\
+      (set! ctx.globalAlpha 0.8)\n\
+      (set! ctx.fillStyle "#ffffff")\n\
+      (ctx.fillRect 0 700 1500 100)\n\
+      (set! ctx.globalAlpha 1))\n\
+\n\
+    (game-modify-buttons\n\
+     (list\n\
+      (image-button\n\
+       "Start playing"\n\
+       default-button-x\n\
+       default-button-y\n\
+       #t\n\
+       (feather)\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (nightjar-experiment-screen c)))\n\
+\n\
+      (image-button\n\
+       "Back to site" 10 (- default-button-y 20) #f "back.png"\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (set! window.location "http://nightjar.exeter.ac.uk/story/games")\n\
+         c))\n\
+\n\
+\n\
+      (image-button\n\
+       "" (+ icon-x 50) (+ default-button-y 190) #f "sensory-ecology.png"\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (set! window.location "http://www.sensoryecology.com/")\n\
+         c))\n\
+\n\
+      (image-button\n\
+       "" (+ icon-x 200) (+ default-button-y 200) #f "exeter.png"\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (set! window.location "http://www.exeter.ac.uk/")\n\
+         c))\n\
+\n\
+      (image-button\n\
+       "" (+ icon-x 400) (+ default-button-y 200) #f "cu.png"\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (set! window.location "http://www.zoo.cam.ac.uk/")\n\
+         c))\n\
+\n\
+      (image-button\n\
+       "" (+ icon-x 600) (+ default-button-y 200) #f "bbsrc.png"\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (set! window.location "http://www.bbsrc.ac.uk/")\n\
+         c))\n\
+\n\
+      (image-button\n\
+       "" (+ icon-x 850) (+ default-button-y 205) #f "foam.png"\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (set! window.location "http://fo.am")\n\
+         c))\n\
+\n\
+\n\
+\n\
+      )\n\
+     c)))))\n\
+\n\
+(define (nightjar-experiment-screen c)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (nightjar-all-text ctx "We would like to use results from your game for a scientific publication, is that ok?")\n\
+     (set! ctx.font "bold 30pt gnuolane")\n\
+     (wrap-text ctx "We are using age and timing information" 100 450 1000 75))\n\
+\n\
+   (game-modify-buttons\n\
+    (list\n\
+\n\
+     (image-button\n\
+      "Yes that\'s fine"\n\
+      (+ default-button-x button-gap)\n\
+      (+ default-button-y 100)\n\
+      #t\n\
+      (feather)\n\
+      (lambda (c)\n\
+        (play-sound "sound/button.wav")\n\
+        (nightjar-age-screen c)))\n\
+\n\
+     (image-button\n\
+      "Back"\n\
+      (- default-button-x button-gap)\n\
+      (+ default-button-y 100)\n\
+      #t\n\
+      (feather)\n\
+      (lambda (c)\n\
+        (play-sound "sound/button.wav")\n\
+        (nightjar-intro c))))\n\
+    c)))\n\
+\n\
+(define (nightjar-age-screen c)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (nightjar-all-text ctx "What is your age?"))\n\
+   (game-modify-buttons\n\
+    (let ((age-but\n\
+           (lambda (title id)\n\
+             (image-button\n\
+              title\n\
+              default-button-x\n\
+              (+ 150 (* id 130))\n\
+              #t\n\
+              (feather)\n\
+              (lambda (c)\n\
+                (play-sound "sound/button.wav")\n\
+                (game-modify-data\n\
+                 (lambda (d)\n\
+                   (nightjar-modify-player-age\n\
+                    id d))\n\
+                 (nightjar-played-before-screen c)))))))\n\
+\n\
+      (list\n\
+       (age-but "Younger than 10" 1)\n\
+       (age-but "10 to 15" 2)\n\
+       (age-but "16 to 35" 3)\n\
+       (age-but "36 to 50" 4)\n\
+       (age-but "Older than 50" 5))\n\
+     )\n\
+    c)))\n\
+\n\
+\n\
+(define (nightjar-played-before-screen c)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (nightjar-all-text\n\
+      ctx\n\
+      (+ "Have you played this game before?")))\n\
+   (game-modify-buttons\n\
+    (list\n\
+\n\
+     (image-button\n\
+      "Yes"\n\
+      (+ default-button-x button-gap)\n\
+      default-button-y\n\
+      #t\n\
+      (feather)\n\
+      (lambda (c)\n\
+        (play-sound "sound/button.wav")\n\
+        (nightjar-species-screen\n\
+         (game-modify-data\n\
+          (lambda (d)\n\
+            (nightjar-modify-played-before #t d))\n\
+          c))))\n\
+\n\
+     (image-button\n\
+      "No"\n\
+      (- default-button-x button-gap)\n\
+      default-button-y\n\
+      #t\n\
+      (feather)\n\
+      (lambda (c)\n\
+        (play-sound "sound/button.wav")\n\
+        (nightjar-species-screen\n\
+         (game-modify-data\n\
+          (lambda (d)\n\
+            (nightjar-modify-played-before #f d))\n\
+          c))))\n\
+    ) c)))\n\
+\n\
+(define (nightjar-species-screen c)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (nightjar-all-text ctx "What predator species would you like to be?")\n\
+     (set! ctx.font "bold 30pt gnuolane")\n\
+     (wrap-text ctx "They see the world differently..." 100 400 1000 75))\n\
+\n\
+   (game-modify-buttons\n\
+    (list\n\
+\n\
+     (image-button\n\
+      "Monkey"\n\
+      (+ default-button-x button-gap)\n\
+      default-button-y\n\
+      #t\n\
+      (feather)\n\
+      (lambda (c)\n\
+        (play-sound "sound/button.wav")\n\
+        (nightjar-explain-screen\n\
+         (game-modify-data\n\
+          (lambda (d)\n\
+            (nightjar-modify-player-type "monkey" d))\n\
+          c))))\n\
+\n\
+     (image-button\n\
+      "Mongoose"\n\
+      (- default-button-x button-gap)\n\
+      default-button-y\n\
+      #t\n\
+      (feather)\n\
+      (lambda (c)\n\
+        (play-sound "sound/button.wav")\n\
+        (nightjar-explain-screen\n\
+         (game-modify-data\n\
+          (lambda (d)\n\
+            (nightjar-modify-player-type "mongoose" d))\n\
+          c))))\n\
+    ) c)))\n\
+\n\
+\n\
+(define (get-n-items lst num)\n\
+  (cond\n\
+   ((null? lst) ())\n\
+   ((zero? num) ())\n\
+   (else (cons (car lst) (get-n-items (cdr lst) (- num 1))))))\n\
+\n\
+(define (slice lst start count)\n\
+  (if (> start 1)\n\
+      (slice (cdr lst) (- start 1) count)\n\
+      (get-n-items lst count)))\n\
+\n\
+(define (nightjar-explain-screen c)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (nightjar-all-text ctx "There is one nightjar hidden in every photo, touch it as soon as you see it"))\n\
+   (game-modify-buttons\n\
+    (list\n\
+\n\
+     (image-button\n\
+      "Start playing"\n\
+      default-button-x\n\
+      default-button-y\n\
+      #t\n\
+      (feather)\n\
+      (lambda (c)\n\
+        (server-call-mutate\n\
+         "player"\n\
+         (list\n\
+          (list "species" (nightjar-player-type (game-data c)))\n\
+          (list "played_before" (nightjar-played-before (game-data c)))\n\
+          (list "age_range" (nightjar-player-age (game-data c))))\n\
+         (lambda (game data)\n\
+           (let ((id (car (JSON.parse data))))\n\
+             ;;(alert id)\n\
+             (game-modify-data\n\
+              (lambda (d)\n\
+                (nightjar-modify-player-id id d))\n\
+              game))))\n\
+        (nightjar-new-game-images c))))\n\
+\n\
+    c)))\n\
+\n\
+(define (record-click c success)\n\
+  (server-call\n\
+   "click"\n\
+   (list\n\
+    (list "player_id" (nightjar-player-id (game-data c)))\n\
+    (list "photo_name" (nightjar-example-file (car (nightjar-images (game-data c)))))\n\
+    (list "photo_offset_x" (car (nightjar-image-pos (game-data c))))\n\
+    (list "photo_offset_y" (cadr (nightjar-image-pos (game-data c))))\n\
+    (list "time_stamp" (- (game-time c) (nightjar-photo-time (game-data c))))\n\
+    (list "x_position" (game-mx c))\n\
+    (list "y_position" (game-my c))\n\
+    (list "success" success))))\n\
+\n\
+\n\
+(define (nightjar-game c)\n\
+  ;; todo: choose and delete\n\
+\n\
+  (define example (car (nightjar-images (game-data c))))\n\
+\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (ctx.drawImage\n\
+      (find-image (nightjar-example-file example) image-lib)\n\
+      (car (nightjar-image-pos (game-data c)))\n\
+      (cadr (nightjar-image-pos (game-data c))))\n\
+     (sprite-render\n\
+      ctx\n\
+      (game-time c)\n\
+      (nightjar-sprite (game-data c)))\n\
+\n\
+     (nightjar-draw-clock ctx c)\n\
+\n\
+     )\n\
+\n\
+   (game-modify-update\n\
+    (lambda (t c)\n\
+      (if (> (- (game-time c)\n\
+                (nightjar-start-time (game-data c)))\n\
+             (* game-time-allowed 1000))\n\
+          (nightjar-fail "You\'ll go hungry tonight!" c)\n\
+          c))\n\
+\n\
+    (game-modify-buttons\n\
+     (list\n\
+\n\
+      (image-button\n\
+       "I give up"\n\
+       (- screen-width 150)\n\
+       (- screen-height 150)\n\
+       #f\n\
+       "quit.png"\n\
+       (lambda (c)\n\
+         (nightjar-fail "You\'ll go hungry tonight!" c)))\n\
+\n\
+      ;; button over nightjar\n\
+      (rect-button\n\
+       ""\n\
+       (+ (car (nightjar-example-pos example))\n\
+          (car (nightjar-image-pos (game-data c))))\n\
+\n\
+       (+ (cadr (nightjar-example-pos example))\n\
+          (cadr (nightjar-image-pos (game-data c))))\n\
+\n\
+       (nightjar-example-width example)\n\
+       (nightjar-example-height example)\n\
+       #f\n\
+       (lambda (c)\n\
+         (play-sound "sound/found.wav")\n\
+         (nightjar-win\n\
+          (game-modify-data\n\
+           (lambda (d)\n\
+             (record-click c 1)\n\
+             (nightjar-modify-sprite\n\
+              (sprite (- (game-mx c) 126)\n\
+                      (- (game-my c) 105)\n\
+                      "right.png" (+ (game-time c) 2000))\n\
+              (nightjar-modify-score\n\
+               (- (game-time c) (nightjar-start-time d)) d)))\n\
+           c))))\n\
+\n\
+      ;; big lose button over whole screen\n\
+      (rect-button\n\
+       ""\n\
+       0 0 screen-width screen-height #f\n\
+       (lambda (c)\n\
+         (play-sound "sound/notfound.wav")\n\
+         (game-modify-data\n\
+          (lambda (d)\n\
+            (record-click c 0)\n\
+            (nightjar-modify-sprite\n\
+             (sprite (- (game-mx c) 126)\n\
+                     (- (game-my c) 105)\n\
+                     "wrong.png" (+ (game-time c) 2000)) d))\n\
+          c)))\n\
+\n\
+      ) c))))\n\
+\n\
+(define (nightjar-fail reason c)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (define example (car (nightjar-images (game-data c))))\n\
+\n\
+     (ctx.drawImage\n\
+      (find-image (nightjar-example-file example) image-lib)\n\
+      (car (nightjar-image-pos (game-data c)))\n\
+      (cadr (nightjar-image-pos (game-data c))))\n\
+\n\
+     ;; highlight the nightjar\n\
+     (set! ctx.strokeStyle "#ffff00")\n\
+     (set! ctx.lineWidth 4)\n\
+     (ctx.strokeRect\n\
+       (+ (car (nightjar-example-pos example))\n\
+          (car (nightjar-image-pos (game-data c))))\n\
+\n\
+       (+ (cadr (nightjar-example-pos example))\n\
+          (cadr (nightjar-image-pos (game-data c))))\n\
+\n\
+       (nightjar-example-width example)\n\
+       (nightjar-example-height example))\n\
+     (set! ctx.lineWidth 1)\n\
+\n\
+     (sprite-render\n\
+      ctx\n\
+      (game-time c)\n\
+      (nightjar-sprite (game-data c)))\n\
+\n\
+     (nightjar-all-text ctx reason))\n\
+\n\
+   (game-modify-update\n\
+    (lambda (t c) c)\n\
+\n\
+    (game-modify-buttons\n\
+     (list\n\
+\n\
+      (image-button\n\
+       "Next nightjar"\n\
+       (- default-button-x button-gap)\n\
+       (+ default-button-y 50) #t\n\
+       (feather)\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         ;; check end of game\n\
+         (if (eq? (length (nightjar-images (game-data c))) 1)\n\
+             (nightjar-intro c)\n\
+             (nightjar-new-game-reset-timer 1 c))))\n\
+\n\
+      (image-button\n\
+       "Quit game"\n\
+       (+ default-button-x button-gap)\n\
+       (+ default-button-y 50) #t\n\
+       (feather)\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         ;; check end of game\n\
+         (nightjar-get-score c "Thankyou for playing.")))\n\
+\n\
+\n\
+      ) c))))\n\
+\n\
+(define (nightjar-win c)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+     (define example (car (nightjar-images (game-data c))))\n\
+\n\
+     (ctx.drawImage\n\
+      (find-image (nightjar-example-file example) image-lib)\n\
+      (car (nightjar-image-pos (game-data c)))\n\
+      (cadr (nightjar-image-pos (game-data c))))\n\
+\n\
+     (sprite-render\n\
+      ctx\n\
+      (game-time c)\n\
+      (nightjar-sprite (game-data c)))\n\
+\n\
+     (let ((done (+ (- 20 (length (nightjar-images (game-data c)))) 1)))\n\
+       (nightjar-heading ctx (+ "Nightjar " done "/20 found in "\n\
+                                (/ (nightjar-score (game-data c)) 1000)\n\
+                                " seconds"))))\n\
+\n\
+   (game-modify-update\n\
+    (lambda (t c) c)\n\
+\n\
+    (game-modify-buttons\n\
+     (list\n\
+      (image-button\n\
+       "Next nightjar"\n\
+       default-button-x\n\
+       (+ default-button-y 50) #t\n\
+       (feather)\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         ;; check end of game\n\
+         (if (eq? (length (nightjar-images (game-data c))) 1)\n\
+             (nightjar-get-score c "Well done!")\n\
+             (nightjar-new-game-reset-timer 1 c))))\n\
+      ) c))))\n\
+\n\
+(define (nightjar-get-score c reason)\n\
+  (server-call-mutate\n\
+   "score"\n\
+   (list\n\
+    (list "player_id" (nightjar-player-id (game-data c))))\n\
+   (lambda (game data)\n\
+     (let ((score (JSON.parse data)))\n\
+       (nightjar-finish game\n\
+                        (list-ref score 0)\n\
+                        (list-ref score 1)\n\
+                        (list-ref score 2)\n\
+                        reason))))\n\
+  c)\n\
+\n\
+(define (score-to-text score)\n\
+  (cond\n\
+   ((eq? score 1) "1st")\n\
+   ((eq? score 2) "2nd")\n\
+   ((eq? score 3) "3rd")\n\
+   (else (+ score "th"))))\n\
+\n\
+(define (get-score-text score count)\n\
+  (if (and (< score 11) (> count 5))\n\
+      (+ " You are in the top ten! You are " (score-to-text score))\n\
+      " You\'ve not made the top ten..."))\n\
+\n\
+(define (trunc a)\n\
+  (/ (Math.floor (* a 100)) 100))\n\
+\n\
+(define (nightjar-finish c av score count reason)\n\
+  (game-modify-render\n\
+   (lambda (ctx)\n\
+\n\
+     (nightjar-all-text\n\
+      ctx (+ reason " Your average nightjar spotting time is " (trunc (/ av 1000)) " seconds."))\n\
+\n\
+     (wrap-text ctx (get-score-text score count) 100 430 1000 75)\n\
+     (wrap-text ctx "For more information head to nightjar.exeter.ac.uk" 100 570 1000 75))\n\
+\n\
+   (game-modify-update\n\
+    (lambda (t c) c)\n\
+\n\
+    (game-modify-buttons\n\
+     (list\n\
+\n\
+      (image-button\n\
+       "Back"\n\
+       default-button-x\n\
+       (+ default-button-y 200)\n\
+       #t\n\
+       (feather)\n\
+       (lambda (c)\n\
+         (play-sound "sound/button.wav")\n\
+         (nightjar-intro c)))\n\
+      ) c))))\n\
+\n\
+(set! ctx.font "normal 75pt gnuolane")\n\
+(centre-text ctx "Loading..." 240)\n\
+\n\
+(console.log "helelelele")\n\
+\n\
+(load-images!\n\
+ (list "feather1.png"\n\
+       "feather2.png"\n\
+       "feather3.png"\n\
+       "quit.png"\n\
+       "right.png"\n\
+       "wrong.png"\n\
+       "bbsrc.png"\n\
+       "cu.png"\n\
+       "exeter.png"\n\
+       "foam.png"\n\
+       "sensory-ecology.png"\n\
+       "back.png")\n\
+ (lambda ()\n\
+   (start-game canvas ctx)))\n\
+\n\
+');
+
+        try {
+	    console.log(js);
+            eval(js);
+        } catch (e) {
+            zc.to_page("output", "An error occured while evaluating ");
+            zc.to_page("output",e);
+            zc.to_page("output",e.stack);
+        }
+    });
+}
+
+
+/**
+ * Provides requestAnimationFrame in a cross browser way.
+ */
+ var requestAnimFrame = (function() {
+    return window.requestAnimationFrame ||
+    window.webkitRequestAnimationFrame ||
+    window.mozRequestAnimationFrame ||
+    window.oRequestAnimationFrame ||
+    window.msRequestAnimationFrame ||
+    function(/* function FrameRequestCallback */ callback, /* DOMElement Element */ element) {
+    window.setTimeout(callback, 1000/60);    };
+    })();

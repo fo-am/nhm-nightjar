@@ -1,0 +1,25 @@
+@font-face {
+    font-family: 'stefanie';
+    src: url('../fonts/StefanieDots.ttf');
+}
+
+@font-face {
+    font-family: 'gnuolane';
+    src: url('../fonts/gnuolane.ttf');
+}
+
+html, body {
+    font-family: 'gnuolane';
+    color: #ffffff;
+    font-size:  20;
+    background: #000;
+    // cursor: url(images/mouse.png), default;
+    height: 100%;
+    min-height: 100%;
+}
+
+#canvas {
+    width: 60%;
+    min-width: 800px;
+    background: url(../images/bg.png);
+}

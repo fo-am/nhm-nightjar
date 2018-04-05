@@ -1,0 +1,806 @@
+;; -*- mode: scheme; -*-
+; ------------------------------------------------
+; nightjar specific stuff
+
+(js ";")
+(console.log "game")
+
+
+(define filenames
+  (list
+   "Reflectance_CF003_V_rgb_0.46-r.jpg"
+   "Reflectance_CF004_V_rgb_0.63-r.jpg"
+   "Reflectance_CF005_V_rgb_0.53-r.jpg"
+   "Reflectance_CF006_V_rgb_0.57-r.jpg"
+   "Reflectance_CF007_V_rgb_0.61-r.jpg"
+   "Reflectance_CF008_V_rgb_0.41-r.jpg"
+   "Reflectance_CF009_V_rgb_0.69-r.jpg"
+   "Reflectance_CF010_V_rgb_0.49-r.jpg"
+   "Reflectance_CF011_V_rgb_0.43-r.jpg"
+   "Reflectance_CF012_V_rgb_0.41-r.jpg"
+   "Reflectance_CF013_V_rgb_0.56-r.jpg"
+   "Reflectance_CF014_V_rgb_0.67-r.jpg"
+   "Reflectance_CF015_V_Rgb_0.65-r.jpg"
+   "Reflectance_CF017_V_rgb_0.54-r.jpg"
+   "Reflectance_CF020_V_rgb_0.47-r.jpg"
+   "Reflectance_CF021_V_rgb_0.52-r.jpg"
+   "Reflectance_CF022_V_rgb_0.52-r.jpg"
+   "Reflectance_CF024_V_rgb_0.57-r.jpg"
+   "Reflectance_CF025_V_rgb_0.33-r.jpg"
+   "Reflectance_CF026_V_rgb_0.55-r.jpg"
+   "Reflectance_CF027_V_rgb_0.45-r.jpg"
+   "Reflectance_CF028_V_rgb_0.55-r.jpg"
+   "Reflectance_CF030_V_rgb_0.47-r.jpg"
+   "Reflectance_CF032_V_rgb_0.58-r.jpg"
+   "Reflectance_CF035_V_rgb_0.50-r.jpg"
+   "Reflectance_CF036_V_rgb_0.48-r.jpg"
+
+   "Reflectance_CP005_V_rgb_0.62-r.jpg"
+   "Reflectance_CP007_V_rgb_0.40-r.jpg"
+   "Reflectance_CP011_V_rgb_0.58-r.jpg"
+   "Reflectance_CP014_V_rgb_0.36-r.jpg"
+   "Reflectance_CP017_V_rgb_0.52-r.jpg"
+   "Reflectance_CP018_V_Rgb_0.55-r.jpg"
+   "Reflectance_CP020_V_rgb_0.44-r.jpg"
+   "Reflectance_CP031_V_rgb_0.25-r.jpg"
+
+   "Reflectance_MV002_V_rgb_0.54-r.jpg"
+   "Reflectance_MV004_V_rgb_0.40-r.jpg"
+   "Reflectance_MV005_V_rgb_0.55-r.jpg"
+   "Reflectance_MV006_V_rgb_0.44-r.jpg"
+   "Reflectance_MV007_V_rgb_0.49-r.jpg"))
+
+(set! filenames
+      (filenames.concat
+       (map
+        (lambda (fn)
+          (+ "mongoose-" fn))
+        filenames)))
+
+(define photos
+  (map
+   (lambda (fn)
+     (+ "photos/" fn))
+   filenames))
+
+(define (feather)
+  (choose (list "feather1.png" "feather2.png" "feather3.png")))
+
+(define (nightjar-example file pos width height)
+  (list file pos width height))
+
+(define (nightjar-example-file n) (list-ref n 0))
+(define (nightjar-example-pos n) (list-ref n 1))
+(define (nightjar-example-width n) (list-ref n 2))
+(define (nightjar-example-height n) (list-ref n 3))
+
+;; get from image structure
+(define image-width 2474)
+(define image-height 1640)
+(define image-centre-x (/ image-width 2))
+(define image-centre-y (/ image-height 2))
+
+(define positions
+  (list
+   (list 932 790 454 134)
+   (list 981 818 378 92)
+   (list 904 768 465 139)
+   (list 904 763 476 144)
+   (list 1030 778 546 156)
+   (list 917 751 488 157)  ;;  cf08
+   (list 1008 766 328 119)
+   (list 1153 783 466 119)
+   (list 1095 763 406 118)
+   (list 910 752 480 154)
+   (list 1112 738 536 174) ;;  cf014
+   (list 1093 773 423 114)
+   (list 1140 766 332 133)
+   (list 1077 743 345 110)
+   (list 1126 738 354 129)
+   (list 1075 761 259 101)
+   (list 1108 775 369 98)
+   (list 1047 783 351 103)
+   (list 1016 721 422 166)
+   (list 1000 766 405 132) ;;   cf26
+   (list 1133 755 331 125)
+   (list 1025 773 350 118)
+   (list 1150 777 326 110)
+   (list 1100 754 352 111)
+   (list 1053 782 294 104)
+   (list 1058 798 308 92)
+   (list 1130 802 400 131)
+   (list 963 751 449 133)
+   (list 1059 766 505 156)
+   (list 922 750 551 133)
+   (list 994 740 408 167)
+   (list 1091 779 408 119)
+   (list 1151 717 342 126)
+   (list 996 768 372 129)
+   (list 970 753 387 129);;   mv02
+   (list 1122 746 423 157);;  mv04
+   (list 989 773 332 118)
+   (list 936 764 447 173)
+   (list 984 702 408 180)))
+
+(define (build-examples n)
+  (cond
+   ((zero? n) ())
+   (else
+    (let ((pos (list-ref positions (modulo n (length positions)))))
+      (cons
+       (nightjar-example
+        (list-ref photos n)
+        (list (list-ref pos 0) (list-ref pos 1))
+        (list-ref pos 2)
+        (list-ref pos 3))
+       (build-examples (- n 1)))))))
+
+(define nightjar-examples (build-examples (- (length photos) 1)))
+
+(define safe-x 0.2)
+(define safe-y 0.2)
+
+(define (generate-image-pos)
+  (list (- (* screen-width (+ safe-x (* (rndf) (- 1 (* safe-x 2))))) image-centre-x)
+        (- (* screen-height (+ safe-y (* (rndf) (- 1 (* safe-y 2))))) image-centre-y)))
+
+(define default-button-x (- (/ screen-width 2) 280))
+(define default-button-y (+ (/ screen-height 2) 20))
+(define button-gap 250)
+(define game-time-allowed 30)
+
+(define (empty-nightjar-data)
+  (list 0 0 0 "" #f 0 () () 0 (sprite 0 0 "wrong.png" 0)))
+
+(define (nightjar-start-time g) (list-ref g 0))
+(define (nightjar-modify-start-time v g) (list-replace g 0 v))
+(define (nightjar-photo-time g) (list-ref g 1))
+(define (nightjar-modify-photo-time v g) (list-replace g 1 v))
+(define (nightjar-player-id g) (list-ref g 2))
+(define (nightjar-modify-player-id v g) (list-replace g 2 v))
+(define (nightjar-player-type g) (list-ref g 3))
+(define (nightjar-modify-player-type v g) (list-replace g 3 v))
+(define (nightjar-played-before g) (list-ref g 4))
+(define (nightjar-modify-played-before v g) (list-replace g 4 v))
+(define (nightjar-player-age g) (list-ref g 5))
+(define (nightjar-modify-player-age v g) (list-replace g 5 v))
+(define (nightjar-images g) (list-ref g 6))
+(define (nightjar-modify-images v g) (list-replace g 6 v))
+(define (nightjar-image-pos g) (list-ref g 7))
+(define (nightjar-modify-image-pos v g) (list-replace g 7 v))
+(define (nightjar-score g) (list-ref g 8))
+(define (nightjar-modify-score v g) (list-replace g 8 v))
+(define (nightjar-sprite g) (list-ref g 9))
+(define (nightjar-modify-sprite v g) (list-replace g 9 v))
+
+(define (nightjar-heading ctx txt)
+  (set! ctx.fillStyle "#000")
+  (set! ctx.font "normal 75pt stefanie")
+  (ctx.save)
+  (ctx.translate 4 4)
+  (wrap-text ctx txt 100 200 1000 100)
+  (ctx.restore)
+  (set! ctx.fillStyle "#fff")
+  (set! ctx.font "normal 75pt stefanie")
+  (wrap-text ctx txt 100 200 1000 100))
+
+
+(define (nightjar-text ctx txt)
+  (set! ctx.font "bold 25pt gnuolane")
+  (wrap-text ctx txt 100 400 1000 50))
+
+(define (nightjar-all-text ctx txt)
+  (set! ctx.font "bold 50pt gnuolane")
+  (wrap-text ctx txt 100 200 1000 75))
+
+(define (time-left c)
+  (* (- (game-time c)
+        (nightjar-start-time (game-data c)))
+     0.001))
+
+(define (stroke-clock ctx c x y)
+  (ctx.beginPath)
+  (ctx.moveTo x y)
+  (ctx.arc
+   x y 50 (* Math.PI -0.5)
+   (+ (* Math.PI -0.5)
+      (/ (* (time-left c) Math.PI 2) game-time-allowed))
+   true)
+  (ctx.closePath))
+
+(define (nightjar-draw-clock ctx c)
+  (set! ctx.lineWidth 4)
+  (set! ctx.strokeStyle "#000")
+  (stroke-clock ctx c 74 74)
+  (ctx.stroke)
+
+  (stroke-clock ctx c 70 70)
+  (set! ctx.fillStyle "rgba(1, 0, 0, 0.7)")
+  (ctx.fill)
+  (set! ctx.lineWidth 4)
+  (set! ctx.strokeStyle "#f00")
+  (ctx.stroke)
+
+  (set! ctx.lineWidth 1)
+  (set! ctx.fillStyle "#fff")
+  (set! ctx.font "normal 30pt gnuolane")
+  (ctx.fillText (Math.floor (- game-time-allowed (time-left c))) 54 110))
+
+(define (nightjar-new-game c)
+  (nightjar-game
+   (game-modify-data
+    (lambda (d)
+      (nightjar-modify-start-time
+       (game-time c) d))
+    (game-modify-data
+     (lambda (d)
+       (nightjar-modify-image-pos
+        (generate-image-pos)
+        (nightjar-modify-sprite
+         (sprite -999 -999 "right.png" 0)
+         d)))
+     c))))
+
+(define (nightjar-new-game-reset-timer n c)
+  (load-image-mutate
+   (lambda (c)
+     (nightjar-new-game
+      (game-modify-data
+       (lambda (d)
+         (nightjar-modify-images
+          (cdr (nightjar-images d))
+          (nightjar-modify-photo-time
+           (game-time c) d)))
+       c)))
+   (nightjar-example-file (list-ref (nightjar-images (game-data c)) n)))
+  (game-modify-buttons () c))
+
+(define (nightjar-new-game-images c)
+  (define start 0)
+  (when (eq? (nightjar-player-type (game-data c)) "monkey")
+        (set! start 40))
+  (play-sound "sound/button.wav")
+
+  (let ((images (crop (shuffle (slice nightjar-examples start 39)) 20)))
+    (load-image-mutate
+     (lambda (c)
+       (nightjar-new-game
+        (game-modify-data
+         (lambda (d)
+           (nightjar-modify-photo-time
+            (game-time c)
+            (nightjar-modify-images images d)))
+         c)))
+     (nightjar-example-file (list-ref images 0)))
+    (game-modify-buttons () c)))
+
+(define (nightjar-intro c)
+  (let ((icon-x 150))
+  (game-modify-data
+   (lambda (d)
+     (empty-nightjar-data))
+   (game-modify-render
+    (lambda (ctx)
+      (nightjar-heading ctx "Where is that nightjar")
+      (nightjar-text ctx "Hunt nightjars and help us with our research")
+      (set! ctx.globalAlpha 0.8)
+      (set! ctx.fillStyle "#ffffff")
+      (ctx.fillRect 0 700 1500 100)
+      (set! ctx.globalAlpha 1))
+
+    (game-modify-buttons
+     (list
+      (image-button
+       "Start playing"
+       default-button-x
+       default-button-y
+       #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (nightjar-experiment-screen c)))
+
+      (image-button
+       "Back to site" 10 (- default-button-y 20) #f "back.png"
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (set! window.location "http://nightjar.exeter.ac.uk/story/games")
+         c))
+
+
+      (image-button
+       "" (+ icon-x 50) (+ default-button-y 190) #f "sensory-ecology.png"
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (set! window.location "http://www.sensoryecology.com/")
+         c))
+
+      (image-button
+       "" (+ icon-x 200) (+ default-button-y 200) #f "exeter.png"
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (set! window.location "http://www.exeter.ac.uk/")
+         c))
+
+      (image-button
+       "" (+ icon-x 400) (+ default-button-y 200) #f "cu.png"
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (set! window.location "http://www.zoo.cam.ac.uk/")
+         c))
+
+      (image-button
+       "" (+ icon-x 600) (+ default-button-y 200) #f "bbsrc.png"
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (set! window.location "http://www.bbsrc.ac.uk/")
+         c))
+
+      (image-button
+       "" (+ icon-x 850) (+ default-button-y 205) #f "foam.png"
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (set! window.location "http://fo.am")
+         c))
+
+
+
+      )
+     c)))))
+
+(define (nightjar-experiment-screen c)
+  (game-modify-render
+   (lambda (ctx)
+     (nightjar-all-text ctx "We would like to use results from your game for a scientific publication, is that ok?")
+     (set! ctx.font "bold 30pt gnuolane")
+     (wrap-text ctx "We are using age and timing information" 100 450 1000 75))
+
+   (game-modify-buttons
+    (list
+
+     (image-button
+      "Yes that's fine"
+      (+ default-button-x button-gap)
+      (+ default-button-y 100)
+      #t
+      (feather)
+      (lambda (c)
+        (play-sound "sound/button.wav")
+        (nightjar-age-screen c)))
+
+     (image-button
+      "Back"
+      (- default-button-x button-gap)
+      (+ default-button-y 100)
+      #t
+      (feather)
+      (lambda (c)
+        (play-sound "sound/button.wav")
+        (nightjar-intro c))))
+    c)))
+
+(define (nightjar-age-screen c)
+  (game-modify-render
+   (lambda (ctx)
+     (nightjar-all-text ctx "What is your age?"))
+   (game-modify-buttons
+    (let ((age-but
+           (lambda (title id)
+             (image-button
+              title
+              default-button-x
+              (+ 150 (* id 130))
+              #t
+              (feather)
+              (lambda (c)
+                (play-sound "sound/button.wav")
+                (game-modify-data
+                 (lambda (d)
+                   (nightjar-modify-player-age
+                    id d))
+                 (nightjar-played-before-screen c)))))))
+
+      (list
+       (age-but "Younger than 10" 1)
+       (age-but "10 to 15" 2)
+       (age-but "16 to 35" 3)
+       (age-but "36 to 50" 4)
+       (age-but "Older than 50" 5))
+     )
+    c)))
+
+
+(define (nightjar-played-before-screen c)
+  (game-modify-render
+   (lambda (ctx)
+     (nightjar-all-text
+      ctx
+      (+ "Have you played this game before?")))
+   (game-modify-buttons
+    (list
+
+     (image-button
+      "Yes"
+      (+ default-button-x button-gap)
+      default-button-y
+      #t
+      (feather)
+      (lambda (c)
+        (play-sound "sound/button.wav")
+        (nightjar-species-screen
+         (game-modify-data
+          (lambda (d)
+            (nightjar-modify-played-before #t d))
+          c))))
+
+     (image-button
+      "No"
+      (- default-button-x button-gap)
+      default-button-y
+      #t
+      (feather)
+      (lambda (c)
+        (play-sound "sound/button.wav")
+        (nightjar-species-screen
+         (game-modify-data
+          (lambda (d)
+            (nightjar-modify-played-before #f d))
+          c))))
+    ) c)))
+
+(define (nightjar-species-screen c)
+  (game-modify-render
+   (lambda (ctx)
+     (nightjar-all-text ctx "What predator species would you like to be?")
+     (set! ctx.font "bold 30pt gnuolane")
+     (wrap-text ctx "They see the world differently..." 100 400 1000 75))
+
+   (game-modify-buttons
+    (list
+
+     (image-button
+      "Monkey"
+      (+ default-button-x button-gap)
+      default-button-y
+      #t
+      (feather)
+      (lambda (c)
+        (play-sound "sound/button.wav")
+        (nightjar-explain-screen
+         (game-modify-data
+          (lambda (d)
+            (nightjar-modify-player-type "monkey" d))
+          c))))
+
+     (image-button
+      "Mongoose"
+      (- default-button-x button-gap)
+      default-button-y
+      #t
+      (feather)
+      (lambda (c)
+        (play-sound "sound/button.wav")
+        (nightjar-explain-screen
+         (game-modify-data
+          (lambda (d)
+            (nightjar-modify-player-type "mongoose" d))
+          c))))
+    ) c)))
+
+
+(define (get-n-items lst num)
+  (cond
+   ((null? lst) ())
+   ((zero? num) ())
+   (else (cons (car lst) (get-n-items (cdr lst) (- num 1))))))
+
+(define (slice lst start count)
+  (if (> start 1)
+      (slice (cdr lst) (- start 1) count)
+      (get-n-items lst count)))
+
+(define (nightjar-explain-screen c)
+  (game-modify-render
+   (lambda (ctx)
+     (nightjar-all-text ctx "There is one nightjar hidden in every photo, touch it as soon as you see it"))
+   (game-modify-buttons
+    (list
+
+     (image-button
+      "Start playing"
+      default-button-x
+      default-button-y
+      #t
+      (feather)
+      (lambda (c)
+        (server-call-mutate
+         "player"
+         (list
+          (list "species" (nightjar-player-type (game-data c)))
+          (list "played_before" (nightjar-played-before (game-data c)))
+          (list "age_range" (nightjar-player-age (game-data c))))
+         (lambda (game data)
+           (let ((id (car (JSON.parse data))))
+             ;;(alert id)
+             (game-modify-data
+              (lambda (d)
+                (nightjar-modify-player-id id d))
+              game))))
+        (nightjar-new-game-images c))))
+
+    c)))
+
+(define (record-click c success)
+  (server-call
+   "click"
+   (list
+    (list "player_id" (nightjar-player-id (game-data c)))
+    (list "photo_name" (nightjar-example-file (car (nightjar-images (game-data c)))))
+    (list "photo_offset_x" (car (nightjar-image-pos (game-data c))))
+    (list "photo_offset_y" (cadr (nightjar-image-pos (game-data c))))
+    (list "time_stamp" (- (game-time c) (nightjar-photo-time (game-data c))))
+    (list "x_position" (game-mx c))
+    (list "y_position" (game-my c))
+    (list "success" success))))
+
+
+(define (nightjar-game c)
+  ;; todo: choose and delete
+
+  (define example (car (nightjar-images (game-data c))))
+
+  (game-modify-render
+   (lambda (ctx)
+     (ctx.drawImage
+      (find-image (nightjar-example-file example) image-lib)
+      (car (nightjar-image-pos (game-data c)))
+      (cadr (nightjar-image-pos (game-data c))))
+     (sprite-render
+      ctx
+      (game-time c)
+      (nightjar-sprite (game-data c)))
+
+     (nightjar-draw-clock ctx c)
+
+     )
+
+   (game-modify-update
+    (lambda (t c)
+      (if (> (- (game-time c)
+                (nightjar-start-time (game-data c)))
+             (* game-time-allowed 1000))
+          (nightjar-fail "You'll go hungry tonight!" c)
+          c))
+
+    (game-modify-buttons
+     (list
+
+      (image-button
+       "I give up"
+       (- screen-width 150)
+       (- screen-height 150)
+       #f
+       "quit.png"
+       (lambda (c)
+         (nightjar-fail "You'll go hungry tonight!" c)))
+
+      ;; button over nightjar
+      (rect-button
+       ""
+       (+ (car (nightjar-example-pos example))
+          (car (nightjar-image-pos (game-data c))))
+
+       (+ (cadr (nightjar-example-pos example))
+          (cadr (nightjar-image-pos (game-data c))))
+
+       (nightjar-example-width example)
+       (nightjar-example-height example)
+       #f
+       (lambda (c)
+         (play-sound "sound/found.wav")
+         (nightjar-win
+          (game-modify-data
+           (lambda (d)
+             (record-click c 1)
+             (nightjar-modify-sprite
+              (sprite (- (game-mx c) 126)
+                      (- (game-my c) 105)
+                      "right.png" (+ (game-time c) 2000))
+              (nightjar-modify-score
+               (- (game-time c) (nightjar-start-time d)) d)))
+           c))))
+
+      ;; big lose button over whole screen
+      (rect-button
+       ""
+       0 0 screen-width screen-height #f
+       (lambda (c)
+         (play-sound "sound/notfound.wav")
+         (game-modify-data
+          (lambda (d)
+            (record-click c 0)
+            (nightjar-modify-sprite
+             (sprite (- (game-mx c) 126)
+                     (- (game-my c) 105)
+                     "wrong.png" (+ (game-time c) 2000)) d))
+          c)))
+
+      ) c))))
+
+(define (nightjar-fail reason c)
+  (game-modify-render
+   (lambda (ctx)
+     (define example (car (nightjar-images (game-data c))))
+
+     (ctx.drawImage
+      (find-image (nightjar-example-file example) image-lib)
+      (car (nightjar-image-pos (game-data c)))
+      (cadr (nightjar-image-pos (game-data c))))
+
+     ;; highlight the nightjar
+     (set! ctx.strokeStyle "#ffff00")
+     (set! ctx.lineWidth 4)
+     (ctx.strokeRect
+       (+ (car (nightjar-example-pos example))
+          (car (nightjar-image-pos (game-data c))))
+
+       (+ (cadr (nightjar-example-pos example))
+          (cadr (nightjar-image-pos (game-data c))))
+
+       (nightjar-example-width example)
+       (nightjar-example-height example))
+     (set! ctx.lineWidth 1)
+
+     (sprite-render
+      ctx
+      (game-time c)
+      (nightjar-sprite (game-data c)))
+
+     (nightjar-all-text ctx reason))
+
+   (game-modify-update
+    (lambda (t c) c)
+
+    (game-modify-buttons
+     (list
+
+      (image-button
+       "Next nightjar"
+       (- default-button-x button-gap)
+       (+ default-button-y 50) #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         ;; check end of game
+         (if (eq? (length (nightjar-images (game-data c))) 1)
+             (nightjar-intro c)
+             (nightjar-new-game-reset-timer 1 c))))
+
+      (image-button
+       "Quit game"
+       (+ default-button-x button-gap)
+       (+ default-button-y 50) #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         ;; check end of game
+         (nightjar-get-score c "Thankyou for playing.")))
+
+
+      ) c))))
+
+(define (nightjar-win c)
+  (game-modify-render
+   (lambda (ctx)
+     (define example (car (nightjar-images (game-data c))))
+
+     (ctx.drawImage
+      (find-image (nightjar-example-file example) image-lib)
+      (car (nightjar-image-pos (game-data c)))
+      (cadr (nightjar-image-pos (game-data c))))
+
+     (sprite-render
+      ctx
+      (game-time c)
+      (nightjar-sprite (game-data c)))
+
+     (let ((done (+ (- 20 (length (nightjar-images (game-data c)))) 1)))
+       (nightjar-heading ctx (+ "Nightjar " done "/20 found in "
+                                (/ (nightjar-score (game-data c)) 1000)
+                                " seconds"))))
+
+   (game-modify-update
+    (lambda (t c) c)
+
+    (game-modify-buttons
+     (list
+      (image-button
+       "Next nightjar"
+       default-button-x
+       (+ default-button-y 50) #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         ;; check end of game
+         (if (eq? (length (nightjar-images (game-data c))) 1)
+             (nightjar-get-score c "Well done!")
+             (nightjar-new-game-reset-timer 1 c))))
+      ) c))))
+
+(define (nightjar-get-score c reason)
+  (server-call-mutate
+   "score"
+   (list
+    (list "player_id" (nightjar-player-id (game-data c))))
+   (lambda (game data)
+     (let ((score (JSON.parse data)))
+       (nightjar-finish game
+                        (list-ref score 0)
+                        (list-ref score 1)
+                        (list-ref score 2)
+                        reason))))
+  c)
+
+(define (score-to-text score)
+  (cond
+   ((eq? score 1) "1st")
+   ((eq? score 2) "2nd")
+   ((eq? score 3) "3rd")
+   (else (+ score "th"))))
+
+(define (get-score-text score count)
+  (if (and (< score 11) (> count 5))
+      (+ " You are in the top ten! You are " (score-to-text score))
+      " You've not made the top ten..."))
+
+(define (trunc a)
+  (/ (Math.floor (* a 100)) 100))
+
+(define (nightjar-finish c av score count reason)
+  (game-modify-render
+   (lambda (ctx)
+
+     (nightjar-all-text
+      ctx (+ reason " Your average nightjar spotting time is " (trunc (/ av 1000)) " seconds."))
+
+     (wrap-text ctx (get-score-text score count) 100 430 1000 75)
+     (wrap-text ctx "For more information head to nightjar.exeter.ac.uk" 100 570 1000 75))
+
+   (game-modify-update
+    (lambda (t c) c)
+
+    (game-modify-buttons
+     (list
+
+      (image-button
+       "Back"
+       default-button-x
+       (+ default-button-y 200)
+       #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (nightjar-intro c)))
+      ) c))))
+
+(set! ctx.font "normal 75pt gnuolane")
+(centre-text ctx "Loading..." 240)
+
+(console.log "helelelele")
+
+(load-images!
+ (list "feather1.png"
+       "feather2.png"
+       "feather3.png"
+       "quit.png"
+       "right.png"
+       "wrong.png"
+       "bbsrc.png"
+       "cu.png"
+       "exeter.png"
+       "foam.png"
+       "sensory-ecology.png"
+       "back.png")
+ (lambda ()
+   (start-game canvas ctx)))
+
