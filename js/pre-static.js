@@ -536,7 +536,6 @@ function init() {
         js+=zc.compile_code({{GAME}});
 
         try {
-	    console.log(js);
             eval(js);
         } catch (e) {
             zc.to_page("output", "An error occured while evaluating ");

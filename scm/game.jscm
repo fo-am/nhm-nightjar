@@ -3,8 +3,6 @@
 ; nightjar specific stuff
 
 (js ";")
-(console.log "game")
-
 
 (define filenames
   (list
@@ -785,8 +783,6 @@
 
 (set! ctx.font "normal 75pt gnuolane")
 (centre-text ctx "Loading..." 240)
-
-(console.log "helelelele")
 
 (load-images!
  (list "feather1.png"

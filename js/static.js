@@ -606,8 +606,6 @@ ret\n\
 ;; You should have received a copy of the GNU Affero General Public License\n\
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.\n\
 \n\
-(console.log "base")\n\
-\n\
 (define zero?\n\
   (lambda (n)\n\
     (= n 0)))\n\
@@ -1168,8 +1166,6 @@ ret\n\
 ; nightjar specific stuff\n\
 \n\
 (js ";")\n\
-(console.log "game")\n\
-\n\
 \n\
 (define filenames\n\
   (list\n\
@@ -1951,8 +1947,6 @@ ret\n\
 (set! ctx.font "normal 75pt gnuolane")\n\
 (centre-text ctx "Loading..." 240)\n\
 \n\
-(console.log "helelelele")\n\
-\n\
 (load-images!\n\
  (list "feather1.png"\n\
        "feather2.png"\n\
@@ -1972,7 +1966,6 @@ ret\n\
 ');
 
         try {
-	    console.log(js);
             eval(js);
         } catch (e) {
             zc.to_page("output", "An error occured while evaluating ");
