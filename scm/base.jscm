@@ -23,6 +23,8 @@
 
 (define (rndf) (Math.random))
 
+(define (floor n) (Math.floor n))
+
 ;; replaced by underlying iterative version
 ;;(define foldl
 ;;  (lambda (fn v l)

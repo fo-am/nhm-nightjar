@@ -615,6 +615,8 @@ ret\n\
 \n\
 (define (rndf) (Math.random))\n\
 \n\
+(define (floor n) (Math.floor n))\n\
+\n\
 ;; replaced by underlying iterative version\n\
 ;;(define foldl\n\
 ;;  (lambda (fn v l)\n\
@@ -1283,6 +1285,49 @@ ret\n\
    (list 936 764 447 173)\n\
    (list 984 702 408 180)))\n\
 \n\
+(define scores\n\
+  (list 778.15 1179.35 1360.7 1508.25 1651.25 1778.2 1890.65 1986.65 \n\
+	2079.4 2160.63157894737 2252.15 2343.15 2426 2506.17647058824 \n\
+	2579.15 2649.6 2714.94736842105 2777.05 2848.21052631579 \n\
+	2904.26315789474 2954.55555555556 3016.1 3073.7 3135.7 \n\
+	3199.61111111111 3259.25 3313.84615384615 3377.42105263158 3431.7 \n\
+	3490.41176470588 3543.68421052632 3597.57894736842 3659.10526315789 \n\
+	3714.4 3765.5 3817.15789473684 3873.42105263158 3935.75 \n\
+	3984.88888888889 4043.55 4096.8 4157.9 4210.625 4259.35 4311.9 \n\
+	4369.8 4424.55555555556 4483.63157894737 4535.27777777778 4586.4 \n\
+	4643.63157894737 4696.35 4754.27777777778 4807.63157894737 \n\
+	4859.44444444444 4921.25 4988.94736842105 5043.78947368421 \n\
+	5101.76470588235 5156.42105263158 5216.65 5282.2 5346.23529411765 \n\
+	5405.76470588235 5468.84210526316 5524.875 5590.05263157895 5654.4 \n\
+	5728.5 5800.47368421053 5879.63157894737 5952.9375 6024 \n\
+	6100.63157894737 6181.47368421053 6265.61111111111 6363.84210526316 \n\
+	6454.05 6543.9 6649.35 6733.78947368421 6839.55 6932 7060.88235294118 \n\
+	7186.29411764706 7301.86666666667 7423.70588235294 7563.1052631579 \n\
+	7712.42857142857 7863.38888888889 8034.8 8214.9 8433.16666666667 \n\
+	8729.94117647059 9061.44444444444 9381.625 9780 10360.2857142857 \n\
+	11127.5555555556 12726.7894736842))\n\
+\n\
+;; binary search\n\
+(define (ordered-list-search l score)\n\
+  (define (_ start end)\n\
+    (cond\n\
+     ;; no children\n\
+     ((null? l) start)\n\
+     (else\n\
+      (let ((mid (floor (+ start (/ (- end start) 2)))))\n\
+	(cond\n\
+	 ;; not found\n\
+	 ((< (- end start) 2) start)\n\
+	 ;; found\n\
+	 ((eq? score (list-ref l mid)) mid)\n\
+	 ;; search down\n\
+	 ((> (list-ref l mid) score)\n\
+	  (_ start mid))\n\
+	 ;; search up\n\
+	 (else\n\
+	  (_ mid end)))))))\n\
+  (_ 0 (length l)))\n\
+\n\
 (define (build-examples n)\n\
   (cond\n\
    ((zero? n) ())\n\
@@ -1311,7 +1356,7 @@ ret\n\
 (define game-time-allowed 15)\n\
 \n\
 (define (empty-nightjar-data)\n\
-  (list 0 0 0 "" #f 0 () () 0 (sprite 0 0 "wrong.png" 0) 0 0))\n\
+  (list 0 0 0 "monkey" #f 0 () () 0 (sprite 0 0 "wrong.png" 0) 0 0))\n\
 \n\
 (define (nightjar-start-time g) (list-ref g 0))\n\
 (define (nightjar-modify-start-time v g) (list-replace g 0 v))\n\
@@ -1692,21 +1737,22 @@ ret\n\
    game\n\
    (/ (nightjar-total-score (game-data c))\n\
       (nightjar-attempts (game-data c)))\n\
-   2\n\
+   (ordered-list-search scores (nightjar-score (game-data c)))\n\
    (nightjar-attempts (game-data c))\n\
    reason))\n\
 \n\
 (define (score-to-text score)\n\
   (cond\n\
-   ((eq? score 1) "1st")\n\
-   ((eq? score 2) "2nd")\n\
-   ((eq? score 3) "3rd")\n\
-   (else (+ score "th"))))\n\
+   ((< score 5) "Wow - well done!")\n\
+   ((< score 25) "Good score!")\n\
+   ((< score 50) "Not too bad...")\n\
+   (else "You might need more practice")))\n\
+\n\
 \n\
 (define (get-score-text score count)\n\
-  (if (and (< score 11) (> count 2))\n\
-      (+ " You are in the top ten! You are " (score-to-text score))\n\
-      " You\'ve not made the top ten..."))\n\
+  (if (> count 2)\n\
+      (+ "You are in the top " (+ score 1) "%")\n\
+      "You need to play a bit more for a score"))\n\
 \n\
 (define (trunc a)\n\
   (/ (Math.floor (* a 100)) 100))\n\
@@ -1718,8 +1764,9 @@ ret\n\
      (nightjar-all-text\n\
       ctx (+ reason " Your average nightjar spotting time is " (trunc (/ av 1000)) " seconds."))\n\
 \n\
-     (wrap-text ctx (get-score-text score count) 100 430 1000 75))\n\
-\n\
+     (wrap-text ctx (get-score-text score count) 100 430 1000 75)\n\
+     (wrap-text ctx (score-to-text score) 100 520 1000 75))\n\
+   \n\
    (game-modify-update\n\
     (lambda (t c) c)\n\
 \n\
@@ -1727,9 +1774,9 @@ ret\n\
      (list\n\
 \n\
       (image-button\n\
-       "Back"\n\
+       "Try again"\n\
        default-button-x\n\
-       (+ default-button-y 200)\n\
+       default-button-y\n\
        #t\n\
        (feather)\n\
        (lambda (c)\n\
