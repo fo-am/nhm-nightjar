@@ -89,7 +89,7 @@
             ;;(console.log (+ "loaded " (+ "images/" fn)))
             (set! image-lib (cons (list fn image) image-lib))
             (ctx.clearRect 0 0 screen-width screen-height)
-            (set! ctx.font "normal 75pt gnuolane")
+            (set! ctx.font "normal 75pt sans")
             (centre-text ctx "Loading..." 240)
             (centre-text
              ctx
@@ -172,7 +172,7 @@
             image.width
             image.height
             jitter callback image-name
-            (rndf)))))
+            (rndf))))
 
 (define (circle-button name x y r callback)
   (list "circle-button" name x y r r #f callback #f (rndf)))
@@ -263,14 +263,14 @@
    (find-image (button-image b) image-lib)
    0 0)
 
-  (set! ctx.fillStyle "#fff")
-  (set! ctx.font "bold 30pt gnuolane")
+  (set! ctx.fillStyle "#221c35")
+  (set! ctx.font "bold 40pt sans")
 
   (let ((m (ctx.measureText (button-name b))))
     (ctx.fillText
      (button-name b)
      (- (/ (button-w b) 2) (/ m.width 2))
-     (+ (/ (button-h b) 2) 5)))
+     (+ (/ (button-h b) 2) 20)))
   (ctx.restore))
 
 
@@ -424,8 +424,8 @@
 
 ;(define screen-width 1024)
 ;(define screen-height 768)
-(define screen-width (* 1024 1.3))
-(define screen-height (* 768 1.3))
+(define screen-width 1774)
+(define screen-height 998)
 
 
 (define load-time (js "new Date()"))

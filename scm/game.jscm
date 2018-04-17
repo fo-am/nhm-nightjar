@@ -4,6 +4,9 @@
 
 (js ";")
 
+(define bg-col "#221c35")
+(define highlight-col "#f3dd6d")
+
 (define filenames
   (list
    "Reflectance_CF003_V_rgb_0.46-r.jpg"
@@ -178,7 +181,7 @@
 
 (define nightjar-examples (build-examples (- (length photos) 1)))
 
-(define safe-x 0.2)
+(define safe-x 0.3)
 (define safe-y 0.4)
 
 (define (generate-image-pos)
@@ -219,23 +222,46 @@
 (define (nightjar-modify-total-score v g) (list-replace g 11 v))
 
 (define (nightjar-heading ctx txt)
-  (set! ctx.fillStyle "#000")
-  (set! ctx.font "normal 75pt stefanie")
+  (set! ctx.fillStyle bg-col)
+  (set! ctx.font "bold 75pt sans")
   (ctx.save)
-  (ctx.translate 4 4)
-  (wrap-text ctx txt 100 200 1000 100)
+  (ctx.translate 8 8)
+  (wrap-text ctx txt 100 200 1500 100)
   (ctx.restore)
-  (set! ctx.fillStyle "#fff")
-  (set! ctx.font "normal 75pt stefanie")
-  (wrap-text ctx txt 100 200 1000 100))
+  (set! ctx.fillStyle highlight-col)
+  (set! ctx.font "bold 75pt sans")
+  (wrap-text ctx txt 100 200 1500 100))
 
+(define (nightjar-top-text ctx txt)
+  (set! ctx.fillStyle "#fff")
+  (set! ctx.font "bold 40pt sans")
+  (wrap-text ctx txt 100 200 1300 70))
 
 (define (nightjar-text ctx txt)
-  (set! ctx.font "bold 25pt gnuolane")
-  (wrap-text ctx txt 100 400 1000 50))
+  (set! ctx.fillStyle bg-col)
+  (set! ctx.font "bold 40pt sans")
+  (ctx.save)
+  (ctx.translate 8 8)
+  (wrap-text ctx txt 100 400 1300 70)
+  (ctx.restore)
+  (set! ctx.fillStyle "#fff")
+  (set! ctx.font "bold 40pt sans")
+  (wrap-text ctx txt 100 400 1300 70))
+
+(define (nightjar-small-top-text ctx txt)
+  (set! ctx.fillStyle highlight-col)
+  (set! ctx.font "bold 30pt sans")
+  (wrap-text ctx txt 100 200 1400 70))
+
+(define (nightjar-small-text ctx txt)
+  (set! ctx.fillStyle highlight-col)
+  (set! ctx.font "bold 30pt sans")
+  (wrap-text ctx txt 100 400 1400 70))
+
 
 (define (nightjar-all-text ctx txt)
-  (set! ctx.font "bold 50pt gnuolane")
+  (set! ctx.fillStyle "#fff")
+  (set! ctx.font "bold 50pt sans")
   (wrap-text ctx txt 100 200 1000 75))
 
 (define (time-left c)
@@ -253,6 +279,40 @@
    true)
   (ctx.closePath))
 
+(define introbg-canvas   
+  (let ((tcanvas (document.createElement "canvas")))
+    (set! tcanvas.width screen-width)
+    (set! tcanvas.height screen-height)
+    tcanvas))
+
+(define introbg-ctx (introbg-canvas.getContext "2d")) 
+
+(define (draw-random-feather)
+  (introbg-ctx.drawImage 
+   (find-image (+ "col-feather-" (+ (random 10) 1) ".png") image-lib)
+   (- (random (+ screen-width 100)) 10)
+   (- (random screen-height) 200)))
+
+(define (splat-feathers c)
+  (when (not (zero? c))
+	(draw-random-feather)
+	(splat-feathers (- c 1))))
+ 
+(define (darken-feathers)
+  (set! introbg-ctx.globalAlpha 0.4)
+  (set! introbg-ctx.fillStyle "#000")
+  (introbg-ctx.fillRect 0 0 screen-width screen-height)
+  (set! introbg-ctx.globalAlpha 1))
+
+(define (draw-feather-array ctx x y a)
+  (when (not (null? a))
+	(let ((img (find-image (+ "col-feather-" (car a) ".png") image-lib))) 
+	  (ctx.drawImage 
+	   img
+	   x (- y img.height))
+	  (draw-feather-array ctx (+ x 80) y (cdr a)))))
+
+
 (define (nightjar-draw-clock ctx c)
   (set! ctx.lineWidth 4)
   (set! ctx.strokeStyle "#000")
@@ -268,7 +328,7 @@
 
   (set! ctx.lineWidth 1)
   (set! ctx.fillStyle "#fff")
-  (set! ctx.font "normal 30pt gnuolane")
+  (set! ctx.font "normal 30pt sans")
   (ctx.fillText (Math.floor (- game-time-allowed (time-left c))) 54 110))
 
 (define (nightjar-new-game c)
@@ -326,26 +386,75 @@
      (empty-nightjar-data))
    (game-modify-render
     (lambda (ctx)
-      (nightjar-heading ctx "Where is that nightjar")
-      (nightjar-text ctx "Hunt nightjars and help us with our research")
+      (ctx.drawImage introbg-canvas 0 0)
+      (nightjar-heading ctx "Where is that nightjar?")
+      (nightjar-text ctx "Nightjars are nocturnal birds that use camouflage to say hidden during the day. See how fast you are at spotting them...")
       )
 
     (game-modify-buttons
      (list
       (image-button
        "Play"
-       default-button-x
+       (- default-button-x 300)
        default-button-y
        #t
        (feather)
        (lambda (c)
          (play-sound "sound/button.wav")
          (nightjar-explain-screen c)))
+
+      (image-button
+       "The science"
+       (+ default-button-x 300)
+       default-button-y
+       #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (nightjar-about c)))
       
       
       )
      c)))))
 
+
+(define (nightjar-about c)
+  (let ((icon-x 150))
+  (game-modify-data
+   (lambda (d)
+     (empty-nightjar-data))
+   (game-modify-render
+    (lambda (ctx)
+      (nightjar-small-top-text ctx "This game was originally made to gather research data on how fast participants spotted nightjars.")
+      (nightjar-small-text ctx "The research showed that predators which see in three colours (like humans and some primates) are better at spotting nightjars than predators that see in two colours (like mongooses). Prey camouflage and predator vision are in an evolutionary battle.")
+      )
+
+    (game-modify-buttons
+     (list
+      (image-button
+       "Quit"
+       (+ default-button-x 300)
+       default-button-y
+       #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (nightjar-intro c)))
+
+      (image-button
+       "Play"
+       (- default-button-x 300)
+       default-button-y
+       #t
+       (feather)
+       (lambda (c)
+         (play-sound "sound/button.wav")
+         (nightjar-explain-screen c)))
+
+      
+      
+      )
+     c)))))
 
 
 (define (get-n-items lst num)
@@ -362,14 +471,21 @@
 (define (nightjar-explain-screen c)
   (game-modify-render
    (lambda (ctx)
-     (nightjar-all-text ctx "There is one nightjar hidden in every photo, touch it as soon as you see it"))
+     (set! ctx.fillStyle "#fff")
+     (set! ctx.font "bold 40pt sans")
+     (draw-feather-array ctx 10 950 (list 3 1 5 6))
+     (draw-feather-array ctx 1300 950 (list 7 10 4 2))
+     (wrap-text ctx "There is one nightjar hidden in every photo, touch it as soon as you see it" 100 100 1300 70)
+     (ctx.drawImage (find-image "nightjar.jpg" image-lib) 470 200))
+
+
    (game-modify-buttons
     (list
 
      (image-button
       "Start playing"
       default-button-x
-      default-button-y
+      (+ default-button-y 100)
       #t
       (feather)
       (lambda (c)
@@ -619,13 +735,23 @@
          (nightjar-intro c)))
       ) c))))
 
-(set! ctx.font "normal 75pt gnuolane")
+(set! ctx.font "normal 75pt sans")
 (centre-text ctx "Loading..." 240)
 
 (load-images!
  (list "feather1.png"
        "feather2.png"
        "feather3.png"
+       "col-feather-1.png"
+       "col-feather-2.png"
+       "col-feather-3.png"
+       "col-feather-4.png"
+       "col-feather-5.png"
+       "col-feather-6.png"
+       "col-feather-7.png"
+       "col-feather-8.png"
+       "col-feather-9.png"
+       "col-feather-10.png"
        "quit.png"
        "right.png"
        "wrong.png"
@@ -634,7 +760,9 @@
        "exeter.png"
        "foam.png"
        "sensory-ecology.png"
-       "back.png")
+       "nightjar.jpg")
  (lambda ()
+   (splat-feathers 1000)
+   (darken-feathers)
    (start-game canvas ctx)))
 
