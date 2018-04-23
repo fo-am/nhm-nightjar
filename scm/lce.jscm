@@ -354,10 +354,10 @@
 (define timeout-time 0)
 
 (define (top-update-game t game)
-  (set! timeout-time (+ timeout-time (game-delta game)))
-  (when (> timeout-time timeout-trigger)
-	(let ((fn (game-timeout game)))
-	  (fn)))
+;  (set! timeout-time (+ timeout-time (game-delta game)))
+;  (when (> timeout-time timeout-trigger)
+;	(let ((fn (game-timeout game)))
+;	  (fn)))
   (let ((fn (game-update game)))
     (set! game (game-modify-time
                 t (fn t game)))))

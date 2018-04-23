@@ -1079,7 +1079,14 @@ ret\n\
 \n\
 ;; ----------------------------------------\n\
 \n\
+(define timeout-trigger (* 2 60))\n\
+(define timeout-time 0)\n\
+\n\
 (define (top-update-game t game)\n\
+;  (set! timeout-time (+ timeout-time (game-delta game)))\n\
+;  (when (> timeout-time timeout-trigger)\n\
+;	(let ((fn (game-timeout game)))\n\
+;	  (fn)))\n\
   (let ((fn (game-update game)))\n\
     (set! game (game-modify-time\n\
                 t (fn t game)))))\n\
@@ -1174,7 +1181,7 @@ ret\n\
 (define default-button-x (- (/ screen-width 2) 350))\n\
 (define default-button-y (+ (/ screen-height 2) 200))\n\
 (define button-gap 250)\n\
-(define game-time-allowed 1)\n\
+(define game-time-allowed 15)\n\
 \n\
 (define filenames\n\
   (list\n\
@@ -1943,7 +1950,7 @@ ret\n\
 (centre-text ctx "Loading..." 240)\n\
 \n\
 (load-images!\n\
- (list "feather1.png"\n\
+ (append (list "feather1.png"\n\
        "feather2.png"\n\
        "feather3.png"\n\
        "feather4.png"\n\
@@ -1969,7 +1976,7 @@ ret\n\
        "right.png"\n\
        "wrong.png"\n\
        "foam.png"\n\
-       "nightjar.jpg")\n\
+       "nightjar.jpg") photos)\n\
  (lambda ()\n\
    (splat-feathers 1000)\n\
    (darken-feathers)\n\
