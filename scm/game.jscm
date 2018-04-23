@@ -9,7 +9,7 @@
 (define default-button-x (- (/ screen-width 2) 350))
 (define default-button-y (+ (/ screen-height 2) 200))
 (define button-gap 250)
-(define game-time-allowed 1)
+(define game-time-allowed 15)
 
 (define filenames
   (list
