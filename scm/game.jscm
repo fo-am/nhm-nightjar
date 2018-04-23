@@ -364,8 +364,6 @@
 
 (define (nightjar-new-game-images c)
   (define start 0)
-  (when (eq? (nightjar-player-type (game-data c)) "monkey")
-        (set! start 40))
   (play-sound "sound/button.wav")
 
   (let ((images (crop (shuffle (slice nightjar-examples start 39)) 5)))
