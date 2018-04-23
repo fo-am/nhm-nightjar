@@ -1227,12 +1227,12 @@ ret\n\
    "Reflectance_MV006_V_rgb_0.44-r.jpg"\n\
    "Reflectance_MV007_V_rgb_0.49-r.jpg"))\n\
 \n\
-(set! filenames\n\
-      (filenames.concat\n\
-       (map\n\
-        (lambda (fn)\n\
-          (+ "mongoose-" fn))\n\
-        filenames)))\n\
+;;(set! filenames\n\
+;;      (filenames.concat\n\
+;;       (map\n\
+;;        (lambda (fn)\n\
+;;          (+ "mongoose-" fn))\n\
+;;        filenames)))\n\
 \n\
 (define photos\n\
   (map\n\
