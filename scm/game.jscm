@@ -55,12 +55,12 @@
    "Reflectance_MV006_V_rgb_0.44-r.jpg"
    "Reflectance_MV007_V_rgb_0.49-r.jpg"))
 
-(set! filenames
-      (filenames.concat
-       (map
-        (lambda (fn)
-          (+ "mongoose-" fn))
-        filenames)))
+;;(set! filenames
+;;      (filenames.concat
+;;       (map
+;;        (lambda (fn)
+;;          (+ "mongoose-" fn))
+;;        filenames)))
 
 (define photos
   (map
