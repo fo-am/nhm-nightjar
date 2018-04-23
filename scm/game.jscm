@@ -778,7 +778,7 @@
 (centre-text ctx "Loading..." 240)
 
 (load-images!
- (list "feather1.png"
+ (append (list "feather1.png"
        "feather2.png"
        "feather3.png"
        "feather4.png"
@@ -804,7 +804,7 @@
        "right.png"
        "wrong.png"
        "foam.png"
-       "nightjar.jpg")
+       "nightjar.jpg") photos)
  (lambda ()
    (splat-feathers 1000)
    (darken-feathers)
