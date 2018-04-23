@@ -1,4 +1,13 @@
-#lang racket
+#lang racket/load
+(load "data.scm")
+
+(define (slit l c n)
+  (cond
+    ((null? l) '())
+    ((zero? c) (cons (car l) (slit (cdr l) n n)))
+    (else (slit (cdr l) (- c 1) n))))
+
+(display(slit scores 0 138))(newline)
 
   ;; binary search
 (define (ordered-list-search l score)
@@ -21,4 +30,4 @@
 	  (_ mid end)))))))
   (_ 0 (length l)))
 
-  (ordered-list-search scores 3000)
+(ordered-list-search scores 3000)

@@ -1,5 +1,15 @@
+@font-face {
+    font-family: 'effra';
+    src: url('../fonts/Effra_Bd.ttf');
+}
+
+@font-face {
+    font-family: 'effra heavy';
+    src: url('../fonts/Effra_He.ttf');
+}
+
 html, body {
-    font-family: 'Arial, Helvetica, sans-serif';
+    font-family: 'effra, Helvetica, sans-serif';
     color: #ffffff;
     font-size:  20;
     background: #000;

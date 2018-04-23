@@ -89,7 +89,7 @@
             ;;(console.log (+ "loaded " (+ "images/" fn)))
             (set! image-lib (cons (list fn image) image-lib))
             (ctx.clearRect 0 0 screen-width screen-height)
-            (set! ctx.font "normal 75pt sans")
+            (set! ctx.font "normal 75pt effra")
             (centre-text ctx "Loading..." 240)
             (centre-text
              ctx
@@ -264,7 +264,7 @@
    0 0)
 
   (set! ctx.fillStyle "#221c35")
-  (set! ctx.font "bold 40pt sans")
+  (set! ctx.font "bold 45pt effra heavy")
 
   (let ((m (ctx.measureText (button-name b))))
     (ctx.fillText
@@ -350,7 +350,14 @@
 
 ;; ----------------------------------------
 
+(define timeout-trigger (* 2 60))
+(define timeout-time 0)
+
 (define (top-update-game t game)
+  (set! timeout-time (+ timeout-time (game-delta game)))
+  (when (> timeout-time timeout-trigger)
+	(let ((fn (game-timeout game)))
+	  (fn)))
   (let ((fn (game-update game)))
     (set! game (game-modify-time
                 t (fn t game)))))
