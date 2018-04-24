@@ -1562,7 +1562,7 @@ ret\n\
     (lambda (ctx)\n\
       (ctx.drawImage introbg-canvas 0 0)\n\
       (nightjar-heading ctx "WHERE IS THAT NIGHTJAR?")\n\
-      (nightjar-text ctx "Nightjars are nocturnal birds that use camouflage to say hidden during the day. See how fast you are at spotting them...")\n\
+      (nightjar-text ctx "Nightjars are nocturnal birds that use camouflage to stay hidden during the day. See how fast you are at spotting them...")\n\
       )\n\
 \n\
     (game-modify-buttons\n\
