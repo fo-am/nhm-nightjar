@@ -367,6 +367,7 @@
 
 (define (nightjar-intro c)
   (let ((icon-x 150))
+<<<<<<< HEAD
     (game-modify-update
      (lambda (t c) c)
      (game-modify-data
@@ -379,9 +380,9 @@
 	 (wrap-text ctx "WHERE IS THAT NIGHTJAR?" 100 (+ 200 screensave-offset) 1500 100)
 	 (set! ctx.fillStyle "#fff")
 	 (set! ctx.font "bold 50pt effra")
-	 (wrap-multitext-slow ctx (list "Nightjars are nocturnal birds that use camouflage to say hidden during the day. See how fast you are at spotting them...") 100 (+ 400 screensave-offset) 1300 80)
+	 (wrap-multitext-slow ctx (list "Nightjars are nocturnal birds that use camouflage to stay hidden during the day. See how fast you are at spotting them...") 100 (+ 400 screensave-offset) 1300 80)
 	 )
-
+       
        (game-modify-buttons
 	(list
 	 (image-button
@@ -407,7 +408,6 @@
 	 
 	 )
 	c))))))
-
 
 (define (nightjar-about c)
   (let ((icon-x 150))
