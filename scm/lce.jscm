@@ -119,26 +119,130 @@
   (let ((m (ctx.measureText txt)))
     (ctx.fillText txt (- (/ screen-width 2) (/ m.width 2)) y)))
 
+(define (left-text ctx txt x y)
+  (ctx.fillText txt x y))
+
 (define (wrap-text ctx text x y max-width line-height)
+  (define x-pos 0)
   (define (wrap-text-inner words line y)
-    (cond
-     ((null? words)
-      (centre-text ctx line y))
-     (else
-      (begin
-        (define test-line (+ line (car words) " "))
-        (define metrics (ctx.measureText test-line))
-        (if (> metrics.width max-width)
-            ;; todo cond returning too early...
-            (begin
-              (centre-text ctx line y)
-              (wrap-text-inner (cdr words)
-                               (+ (car words) " ")
-                               (+ y line-height)))
-            (begin
-              (wrap-text-inner
-               (cdr words) test-line y)))))))
+    (if (null? words)
+	(begin
+	  (when (zero? x-pos)
+		(let ((m (ctx.measureText line)))
+		  (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
+	  (left-text ctx line x-pos y))
+	(begin
+	  (let ((test-line (+ line (car words) " ")))
+	    (let ((metrics (ctx.measureText test-line)))
+	      (if (> metrics.width max-width)
+		  (begin
+		    ;; todo cond returning too early...
+		    (when (zero? x-pos)
+			  (let ((m (ctx.measureText line)))
+			    (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
+		    
+		    (left-text ctx line x-pos y)
+		    (wrap-text-inner (cdr words)
+				     (+ (car words) " ")
+				     (+ y line-height)))
+		  (begin
+		    (wrap-text-inner
+		     (cdr words) test-line y))))))))
   (wrap-text-inner (text.split " ") "" y))
+
+(define (text-max-width ctx text wrap-width)
+  (let ((ret 0))
+    (define (_ words line)
+      (if (null? words)
+	  (begin
+	    (let ((m (ctx.measureText line)))
+	      (when (> m.width ret) (set! ret m.width))))
+	  (begin
+	    (let ((test-line (+ line (car words) " ")))
+	      (let ((metrics (ctx.measureText test-line)))
+		(if (> metrics.width wrap-width)
+		    (begin
+		      (let ((m (ctx.measureText line)))
+			(when (> m.width ret) (set! ret m.width)))
+		      (_ (cdr words) (+ (car words) " ")))
+		    (begin
+		      (when (> metrics.width ret) (set! ret metrics.width))
+		      (_ (cdr words) test-line))))))))
+    (_ (text.split " ") "")
+    ret))
+
+(define (multitext-max-width ctx text wrap-width)
+  (let ((ret 0))
+    (for-each
+     (lambda (text)
+       (let ((w (text-max-width ctx text wrap-width)))
+	 (when (> w ret) (set! ret w))))
+     text)
+    ret))
+
+(define (wrap-multitext-slow ctx text x y max-width line-height)
+  (define x-pos 0)
+  (define y-pos 0)
+  (set! y-pos y)
+  (define (wrap-multitext-slow-inner words line)
+    (if (null? words)
+	(begin
+	  (left-text ctx line x-pos y-pos))
+	(begin
+	  (let ((test-line (+ line (car words) " ")))
+	    (let ((metrics (ctx.measureText test-line)))
+	      (if (> metrics.width max-width)
+		  (begin
+		    ;; todo cond returning too early...
+		    (left-text ctx line x-pos y-pos)
+		    (set! y-pos (+ y-pos line-height))
+		    (wrap-multitext-slow-inner (cdr words)
+				     (+ (car words) " ")))
+		  (begin
+		    (wrap-multitext-slow-inner
+		     (cdr words) test-line))))))))
+
+  (set! x-pos (- (/ screen-width 2) (/ (multitext-max-width ctx text max-width) 2)))
+  (for-each
+   (lambda (text)
+     (wrap-multitext-slow-inner (text.split " ") "")
+     (set! y-pos (+ y-pos line-height)))
+   text))
+
+
+(define (wrap-multitext ctx text x y max-width line-height)
+  (define x-pos 0)
+  (define y-pos 0)
+  (set! y-pos y)
+  (define (wrap-multitext-inner words line)
+    (if (null? words)
+	(begin
+	  (when (zero? x-pos)
+		(let ((m (ctx.measureText line)))
+		  (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
+	  (left-text ctx line x-pos y-pos))
+	(begin
+	  (let ((test-line (+ line (car words) " ")))
+	    (let ((metrics (ctx.measureText test-line)))
+	      (if (> metrics.width max-width)
+		  (begin
+		    ;; todo cond returning too early...
+		    (when (zero? x-pos)
+			  (let ((m (ctx.measureText line)))
+			    (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
+		    
+		    (left-text ctx line x-pos y-pos)
+		    (set! y-pos (+ y-pos line-height))
+		    (wrap-multitext-inner (cdr words)
+				     (+ (car words) " ")))
+		  (begin
+		    (wrap-multitext-inner
+		     (cdr words) test-line))))))))
+  (for-each
+   (lambda (text)
+     (wrap-multitext-inner (text.split " ") "")
+     (set! y-pos (+ y-pos line-height)))
+   text))
 
 (define (sprite x y image timer)
   (list x y image timer))
@@ -352,12 +456,15 @@
 
 (define timeout-trigger (* 2 60))
 (define timeout-time 0)
+(define timeout-delta 0)
+(define timeout-t (js "new Date()"))
 
 (define (top-update-game t game)
-;  (set! timeout-time (+ timeout-time (game-delta game)))
-;  (when (> timeout-time timeout-trigger)
-;	(let ((fn (game-timeout game)))
-;	  (fn)))
+  (set! timeout-time (+ timeout-time timeout-delta))
+  (when (> timeout-time timeout-trigger)
+	(window.location.reload))
+  (set! timeout-delta (/ (- (js "new Date()") timeout-t) 1000.0))
+  (set! timeout-t (js "new Date()"))
   (let ((fn (game-update game)))
     (set! game (game-modify-time
                 t (fn t game)))))
@@ -382,6 +489,7 @@
 (define game 0)
 
 (define (mouse-from-event g canvas e)
+  (set! timeout-time 0)
   (let ((rect (canvas.getBoundingClientRect)))
     (let ((sx (/ rect.width screen-width))
           (sy (/ rect.height screen-height)))
@@ -389,6 +497,7 @@
             (/ (- e.clientY rect.top) sy)))))
 
 (define (touch-from-event g canvas e)
+  (set! timeout-time 0)
   (let ((e (car e.targetTouches)))
     (mouse-from-event g canvas e)))
 
