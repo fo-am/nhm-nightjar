@@ -367,7 +367,6 @@
 
 (define (nightjar-intro c)
   (let ((icon-x 150))
-<<<<<<< HEAD
     (game-modify-update
      (lambda (t c) c)
      (game-modify-data
