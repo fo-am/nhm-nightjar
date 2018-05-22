@@ -7,6 +7,9 @@
     cache: false
 })")
 
+(define bg-col "#221d35") 
+(define highlight-col "#f5dc6e")
+
 (define (server-call name argsl)
   ;; hack together a js object to send
    (define args
@@ -123,13 +126,13 @@
   (ctx.fillText txt x y))
 
 (define (wrap-text ctx text x y max-width line-height)
-  (define x-pos 0)
+  (define x-pos 350)
   (define (wrap-text-inner words line y)
     (if (null? words)
 	(begin
-	  (when (zero? x-pos)
-		(let ((m (ctx.measureText line)))
-		  (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
+	  ;;(when (zero? x-pos)
+	  ;;(let ((m (ctx.measureText line)))
+	  ;;  (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
 	  (left-text ctx line x-pos y))
 	(begin
 	  (let ((test-line (+ line (car words) " ")))
@@ -137,9 +140,9 @@
 	      (if (> metrics.width max-width)
 		  (begin
 		    ;; todo cond returning too early...
-		    (when (zero? x-pos)
-			  (let ((m (ctx.measureText line)))
-			    (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
+		    ;;(when (zero? x-pos)
+		    ;;	  (let ((m (ctx.measureText line)))
+		    ;;     (set! x-pos (- (/ screen-width 2) (/ m.width 2)))))
 		    
 		    (left-text ctx line x-pos y)
 		    (wrap-text-inner (cdr words)
@@ -180,6 +183,8 @@
      text)
     ret))
 
+;; (- (/ screen-width 2) (/ (multitext-max-width ctx text max-width) 2)))
+
 (define (wrap-multitext-slow ctx text x y max-width line-height)
   (define x-pos 0)
   (define y-pos 0)
@@ -202,7 +207,7 @@
 		    (wrap-multitext-slow-inner
 		     (cdr words) test-line))))))))
 
-  (set! x-pos (- (/ screen-width 2) (/ (multitext-max-width ctx text max-width) 2)))
+  (set! x-pos (+ 350 x)) 
   (for-each
    (lambda (text)
      (wrap-multitext-slow-inner (text.split " ") "")
@@ -271,12 +276,16 @@
 
 (define (image-button name x y jitter image-name callback)
     (let ((image (find-image image-name image-lib)))
+      (set! ctx.font "30pt effra")
       (list "image-button"
             name x y
-            image.width
-            image.height
+	    (let ((m (ctx.measureText name)))
+	      (+ m.width 20))
+            80 
             jitter callback image-name
             (rndf))))
+
+;;image.height
 
 (define (circle-button name x y r callback)
   (list "circle-button" name x y r r #f callback #f (rndf)))
@@ -354,27 +363,31 @@
 (define (image-button-render! ctx t b)
   (ctx.save)
   (ctx.translate (button-x b) (button-y b))
-  (when (button-jitter b)
-        (ctx.translate (/ (button-w b) 2)
-                       (/ (button-h b) 2))
-        (ctx.rotate (* 0.05 (Math.sin (+ (* (button-offs b) 10) (* t 0.01)))))
-        ;;(ctx.scale (+ 1 (* 0.2 (- (rndf) 0.5)))
-        ;;           (+ 1 (* 0.2 (- (rndf) 0.5))))
-        (ctx.translate (- 0 (/ (button-w b) 2))
-                       (- 0 (/ (button-h b) 2))))
+  ;; (when (button-jitter b)
+  ;;       (ctx.translate (/ (button-w b) 2)
+  ;;                      (/ (button-h b) 2))
+  ;;       (ctx.rotate (* 0.05 (Math.sin (+ (* (button-offs b) 10) (* t 0.01)))))
+  ;;       ;;(ctx.scale (+ 1 (* 0.2 (- (rndf) 0.5)))
+  ;;       ;;           (+ 1 (* 0.2 (- (rndf) 0.5))))
+  ;;       (ctx.translate (- 0 (/ (button-w b) 2))
+  ;;                      (- 0 (/ (button-h b) 2))))
 
-  (ctx.drawImage
-   (find-image (button-image b) image-lib)
-   0 0)
+  ;;(ctx.drawImage
+  ;; (find-image (button-image b) image-lib)
+  ;; 0 0)
 
-  (set! ctx.fillStyle "#221c35")
-  (set! ctx.font "bold 45pt effra heavy")
+  (set! ctx.font "30pt effra")
 
   (let ((m (ctx.measureText (button-name b))))
+  
+    (set! ctx.fillStyle highlight-col)
+    (ctx.fillRect 0 0 (+ (button-w b) 20) (button-h b))
+    
+    (set! ctx.fillStyle bg-col)
     (ctx.fillText
      (button-name b)
-     (- (/ (button-w b) 2) (/ m.width 2))
-     (+ (/ (button-h b) 2) 20)))
+     (+ (- (/ (button-w b) 2) (/ m.width 2)) 10)
+     (+ (/ (button-h b) 2) 15)))
   (ctx.restore))
 
 
@@ -477,7 +490,7 @@
   (when (not (eq? game 0))
         (ctx.clearRect 0 0 screen-width screen-height)
         (let ((t (- (js "new Date()") load-time)))
-          (set! ctx.font "bold 10pt courier")
+          (set! ctx.font "10pt courier")
           (set! ctx.fillStyle "#fff");
 ;;          (ctx.fillText (+ "Time is: " t) 10 750)
           (set! ctx.font "75pt stefanie")

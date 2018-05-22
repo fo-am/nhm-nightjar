@@ -6,7 +6,7 @@
 
 (define bg-col "#221d35") 
 (define highlight-col "#f5dc6e")
-(define default-button-x (- (/ screen-width 2) 350))
+(define default-button-x 350)
 (define default-button-y (+ (/ screen-height 2) 200))
 (define button-gap 250)
 (define game-time-allowed 15)
@@ -225,38 +225,45 @@
 
 (define (nightjar-heading ctx txt)
   (set! ctx.fillStyle highlight-col)
-  (set! ctx.font "bold 80pt effra heavy")
+  (set! ctx.font "80pt effra")
   (wrap-text ctx txt 100 200 1500 100))
 
 (define (nightjar-top-text ctx txt)
   (set! ctx.fillStyle "#fff")
-  (set! ctx.font "bold 50pt effra")
+  (set! ctx.font "50pt effra")
   (wrap-text ctx txt 100 200 1300 80))
 
 (define (nightjar-text ctx txt)
   (set! ctx.fillStyle "#fff")
-  (set! ctx.font "bold 50pt effra")
+  (set! ctx.font "50pt effra")
   (wrap-text ctx txt 100 400 1300 80))
 
 (define (nightjar-small-top-text ctx txt)
   (set! ctx.fillStyle highlight-col)
-  (set! ctx.font "bold 40pt effra")
+  (set! ctx.font "40pt effra")
   (wrap-text ctx txt 100 200 1400 60))
 
 (define (nightjar-small-text ctx txt)
   (set! ctx.fillStyle highlight-col)
-  (set! ctx.font "bold 40pt effra")
+  (set! ctx.font "40pt effra")
   (wrap-text ctx txt 100 400 1400 60))
 
 (define (nightjar-all-text ctx txt)
   (set! ctx.fillStyle "#fff")
-  (set! ctx.font "bold 50pt effra")
+  (set! ctx.font "50pt effra")
   (wrap-text ctx txt 100 200 1400 75))
 
 (define (nightjar-all-text-shadow ctx txt)
   (set! ctx.fillStyle "#fff")
-  (set! ctx.font "bold 50pt effra")
+  (set! ctx.font "50pt effra")
   (wrap-text ctx txt 100 200 1400 75))
+
+(define (nightjar-bottom-text ctx txt)
+  (set! ctx.fillStyle "#fff")
+  (set! ctx.font "35pt effra")
+  (let ((m (ctx.measureText txt)))
+    (ctx.fillText txt (- (/ screen-width 2) (/ m.width 2))
+		  (- screen-height 70))))
 
 (define (time-left c)
   (* (- (game-time c)
@@ -306,15 +313,29 @@
 	   x (- y img.height))
 	  (draw-feather-array ctx (+ x 80) y (cdr a)))))
 
+(define (msg t) 
+  (display t))
+
+(define (splurge n)
+  (let ((t (+ "" (+ (Math.floor n) 100))))
+    (t.substring 1 t.length)))
+
 (define (nightjar-draw-clock ctx c)
-  (set! ctx.fillStyle bg-col)
-  (ctx.beginPath)
-  (ctx.moveTo 200 150)
-  (ctx.arc 200 150 100 0 (* Math.PI 2) #t)
-  (ctx.fill)
-  (set! ctx.fillStyle highlight-col)
-  (stroke-clock ctx c 200 150)
-  (ctx.fill))
+  (let ((pos-x (- screen-width 200))
+	(pos-y (- screen-height 270)))
+    (set! ctx.fillStyle bg-col)
+    (ctx.beginPath)
+    (ctx.moveTo pos-x pos-y)
+    (ctx.arc pos-x pos-y 100 0 (* Math.PI 2) #t)
+    (ctx.fill)
+    (set! ctx.fillStyle highlight-col)
+    (stroke-clock ctx c pos-x pos-y)
+    (ctx.fill)
+    (set! ctx.font "45pt effra")
+    (ctx.fillText
+     (+ "00:" (splurge (- game-time-allowed (time-left c))))
+     (- pos-x 70)
+     (+ pos-y 200))))
 
 (define (nightjar-new-game c)
   (nightjar-game
@@ -375,29 +396,29 @@
       (game-modify-render
        (lambda (ctx)
 	 (set! ctx.fillStyle highlight-col)
-	 (set! ctx.font "bold 80pt effra heavy")
-	 (wrap-text ctx "WHERE IS THAT NIGHTJAR?" 100 (+ 200 screensave-offset) 1500 100)
+	 (set! ctx.font "70pt effra heavy")
+	 (wrap-text ctx "Where is that nightjar?" 350 (+ 350 screensave-offset) 1500 100)
 	 (set! ctx.fillStyle "#fff")
-	 (set! ctx.font "bold 50pt effra")
-	 (wrap-multitext-slow ctx (list "Nightjars are nocturnal birds that use camouflage to stay hidden during the day. See how fast you are at spotting them...") 100 (+ 400 screensave-offset) 1300 80)
+	 (set! ctx.font "40pt effra")
+	 (wrap-multitext-slow ctx (list "Nightjars are nocturnal birds that use camouflage to stay hidden during the day. How fast are you at spotting them?") 0 (+ 450 screensave-offset) 950 60)
 	 )
        
        (game-modify-buttons
 	(list
 	 (image-button
 	  "Play"
-	  (- default-button-x 300)
-	  (+ default-button-y screensave-offset)
+	  default-button-x
+	  (+ default-button-y screensave-offset -20)
 	  #f
-	  "feather-white-4.png"
+	  ""
 	  (lambda (c)
 	    (play-sound "sound/button.wav")
 	    (nightjar-explain-screen c)))
 
 	 (image-button
 	  "Project nightjar"
-	  (+ default-button-x 300)
-	  (+ default-button-y screensave-offset)
+	  (+ default-button-x 170)
+	  (+ default-button-y screensave-offset -20)
 	  #f
 	  "feather-white-3.png"
 	  (lambda (c)
@@ -415,40 +436,49 @@
      (empty-nightjar-data))
    (game-modify-render
     (lambda (ctx)
-      (ctx.drawImage (find-image "foam-logo.png" image-lib) 670 560)
-      (ctx.drawImage (find-image "exeter.png" image-lib) 890 600)
+
+      (let ((osx 625) (osy 270))
+	(ctx.drawImage (find-image "foam-logo.png" image-lib) (+ 670 osx) (+ 560 osy))
+	(ctx.drawImage (find-image "exeter.png" image-lib) (+ 890 osx) (+ 600 osy)))
+
 ;;      (ctx.drawImage (find-image "feather-divider.png" image-lib) 400 200)
 
-      (set! ctx.fillStyle highlight-col)
-      (set! ctx.font "bold 40pt effra")
-      (wrap-multitext 
+      ;;(set! ctx.fillStyle highlight-col)
+      (set! ctx.font "35pt effra")
+      (wrap-multitext-slow
        ctx 
-       (list "This game was originally made to gather research data on how fast participants spotted nightjars."
-	     ""
-	     "The research showed that predators which see in three colours (like humans and some primates) are better at spotting nightjars than predators that see in two colours (like mongooses). Prey camouflage and predator vision are in an evolutionary battle.")
-       50 100 1400 60))
+       (list 
+	"Project Nightjar studied how nightjars have evolved to be camouflaged in their surroundings."
+	""
+	"This game gathered data on how fast participants spotted nightjars."
+	""
+	"The research showed that predators which see in three colours (like humans and some primates) are better at spotting nightjars than predators that see in two colours (like mongooses). Prey camouflage and predator vision are in an evolutionary battle to spot each other and not be seen."
+	""
+	"Visit nightjar.exeter.ac.uk to find out more."
+	)
+       -50 100 1000 50))
     
     (game-modify-buttons
      (list
       (image-button
        "Home"
-       (+ default-button-x 300)
-       (+ default-button-y 60)
+       15
+       (+ default-button-y 170)
        #f
        "feather-white-1.png"
        (lambda (c)
          (play-sound "sound/button.wav")
          (nightjar-intro c)))
 
-      (image-button
-       "Play"
-       (- default-button-x 300)
-       (+ default-button-y 60)
-       #f
-       "feather-white-5.png"
-       (lambda (c)
-         (play-sound "sound/button.wav")
-         (nightjar-explain-screen c)))
+      ;; (image-button
+      ;;  "Play"
+      ;;  (- default-button-x 300)
+      ;;  (+ default-button-y 60)
+      ;;  #f
+      ;;  "feather-white-5.png"
+      ;;  (lambda (c)
+      ;;    (play-sound "sound/button.wav")
+      ;;    (nightjar-explain-screen c)))
 
       
       
@@ -471,30 +501,31 @@
   (game-modify-render
    (lambda (ctx)
      (set! ctx.fillStyle "#fff")
-     (set! ctx.font "bold 50pt effra heavy")
+     (set! ctx.font "40pt effra")
 ;;     (ctx.drawImage (find-image "leftcluster.png" image-lib) 10 100)
 ;;     (ctx.drawImage (find-image "rightcluster.png" image-lib) 1300 100)
-     (wrap-text ctx "There is one nightjar hidden in every photo. Touch it as soon as you see it!" 100 100 1300 70)
-     ;;(ctx.drawImage (find-image "nightjar.jpg" image-lib) 470 200)
+     
+     (wrap-multitext-slow ctx (list "There is one nightjar hidden in every photo." "You have up to 15 seconds to find each one." "Touch it as soon as you see it.") 0 100 1300 60)
+     
+     (ctx.drawImage (find-image "nightjar.jpg" image-lib) 450 250)
      )
 
    (game-modify-buttons
     (list
 
-     (image-button
+     (rect-button
       ""
-      (- default-button-x 160)
-      200
+      450 250
+      800 600
       #f
-      "nightjar.jpg"
       (lambda (c)
         (nightjar-new-game-images c)))
      
     
      (image-button
       "Start"
-      default-button-x
-      (+ default-button-y 100)
+      775
+      (+ default-button-y 180)
       #f
       "feather-white-3-s.png"
       (lambda (c)
@@ -516,7 +547,11 @@
       (game-time c)
       (nightjar-sprite (game-data c)))
 
+     (set! ctx.fillStyle bg-col)
+     (ctx.fillRect 0 (- screen-height 150) screen-width 150)
+
      (nightjar-draw-clock ctx c)
+
 
      )
 
@@ -571,8 +606,8 @@
 
       (image-button
        "Home"
-       default-button-x
-       (+ default-button-y 100)
+       15
+       (+ default-button-y 170)
        #f
        "feather-white-4-s.png"
        (lambda (c)
@@ -613,22 +648,23 @@
 		 (car (nightjar-image-pos (game-data c)))))
 	   (y (+ (cadr (nightjar-example-pos example))
 		 (cadr (nightjar-image-pos (game-data c))))))
-       (ctx.beginPath)
-       (set! ctx.strokeStyle bg-col)
-       (set! ctx.lineWidth 32)
-       (ctx.arc (+ x (/ (nightjar-example-width example) 2)) 
-		(+ y (/ (nightjar-example-height example) 2)) 
-		(/ (nightjar-example-width example) 2)
-		0 (* Math.PI 2) true)
-       (ctx.stroke)
+       ;; (ctx.beginPath)
+       ;; (set! ctx.strokeStyle bg-col)
+       ;; (set! ctx.lineWidth 32)
+       ;; (ctx.arc (+ x (/ (nightjar-example-width example) 2)) 
+       ;; 		(+ y (/ (nightjar-example-height example) 2)) 
+       ;; 		(/ (nightjar-example-width example) 2)
+       ;; 		0 (* Math.PI 2) true)
+       ;; (ctx.stroke)
        (ctx.beginPath)
        (set! ctx.lineWidth 16)
        (set! ctx.strokeStyle highlight-col)
        (ctx.arc (+ x (/ (nightjar-example-width example) 2)) 
-		(+ y (/ (nightjar-example-height example) 2)) 
-		(/ (nightjar-example-width example) 2)
-		0 (* Math.PI 2) true)
-       (ctx.stroke))
+       		(+ y (/ (nightjar-example-height example) 2)) 
+       		(/ (nightjar-example-width example) 2)
+       		0 (* Math.PI 2) true)
+       (ctx.stroke)
+       )
      (set! ctx.lineWidth 1)
 
      (sprite-render
@@ -637,8 +673,10 @@
       (nightjar-sprite (game-data c)))
 
      (set! ctx.fillStyle bg-col)
-     (ctx.fillRect 0 100 screen-width 150)
-     (nightjar-all-text-shadow ctx reason))
+     (ctx.fillRect 0 (- screen-height 150) screen-width 150)
+     (nightjar-bottom-text ctx reason)
+
+     )
 
    (game-modify-update
     (lambda (t c) c)
@@ -648,8 +686,8 @@
 
       (image-button
        "Next"
-       (- default-button-x button-gap)
-       (+ default-button-y 50) #f
+       (- screen-width 210)
+       (+ default-button-y 170) #f
        "feather-white-4-s.png"
        (lambda (c)
          (play-sound "sound/button.wav")
@@ -660,8 +698,8 @@
 
       (image-button
        "Home"
-       (+ default-button-x button-gap)
-       (+ default-button-y 50) #f
+       15
+       (+ default-button-y 170) #f
        "feather-white-3-s.png"
        (lambda (c)
          (play-sound "sound/button.wav")
@@ -690,22 +728,21 @@
       (nightjar-sprite (game-data c)))
 
      (set! ctx.fillStyle bg-col)
-     (ctx.fillRect 0 100 screen-width 150)
-
+     (ctx.fillRect 0 (- screen-height 150) screen-width 150)
      (let ((done (+ (- 5 (length (nightjar-images (game-data c)))) 1)))
-       (nightjar-all-text-shadow ctx (+ "Nightjar " done "/5 found in "
-					(print-trunc (/ (nightjar-score (game-data c)) 1000))
-					" seconds"))))
+       (nightjar-bottom-text ctx (+ "Nightjar " done "/5 found in "
+				    (print-trunc (/ (nightjar-score (game-data c)) 1000))
+				    " seconds."))))
 
    (game-modify-update
     (lambda (t c) c)
-
+    
     (game-modify-buttons
      (list
       (image-button
        "Next"
-       (+ default-button-x button-gap)
-       (+ default-button-y 50) #f
+       (- screen-width 210)
+       (+ default-button-y 170) #f
        "feather-white-3-s.png"
        (lambda (c)
          (play-sound "sound/button.wav")
@@ -716,8 +753,8 @@
       
       (image-button
        "Home"
-       (- default-button-x button-gap)
-       (+ default-button-y 50)
+       15
+       (+ default-button-y 170)
        #f
        "feather-white-4-s.png"
        (lambda (c)
@@ -727,11 +764,15 @@
 
       ) c))))
 
+(define (non-spots-time c)
+  (* game-time-allowed (- 5 (nightjar-found (game-data c)))))
+
 (define (nightjar-get-score c reason)
   (nightjar-finish 
    game
-   (/ (nightjar-total-score (game-data c))
-      (nightjar-found (game-data c)))
+   (+ (/ (nightjar-total-score (game-data c))
+	 (nightjar-found (game-data c)))
+      (non-spots-time c))
    (ordered-list-search scores (nightjar-score (game-data c)))
    (nightjar-found (game-data c))
    reason))
@@ -741,12 +782,23 @@
    ((< score 5) "Wow - good work!")
    ((< score 25) "Good score!")
    ((< score 50) "Not too bad...")
-   (else "You might need more practice")))
+   (else "You might need more practice.")))
+
+(define (get-percent score)
+  (cond
+   ((< score 5) "5")
+   ((and (>= score 5) (< score 30)) "25") 
+   (else "50")))
+
+(define (low-score count score)
+  (if (and (> count 0) (> score 50))
+      "The average is xx seconds."
+      "You need to spot some nightjars for a score!"))
 
 (define (get-score-text score count)
-  (if (> count 0)
-      (+ "That puts you in the top " (+ score 1) "% of players.")
-      "You need to spot some nightjars for a score!"))
+  (if (and (> count 0) (< score 50))
+      (+ "That puts you in the top " (get-percent score) "% of players.")
+      (low-score count score)))
 
 (define (trunc a)
   (/ (Math.floor (* a 100)) 100))
@@ -762,11 +814,11 @@
 	 (when (not (zero? count)) (set! extra (score-to-text score)))
 	 
 	 ;;(set! ctx.fillStyle highlight-col)
-	 (set! ctx.font "bold 50pt effra")
+	 (set! ctx.font "40pt effra")
 	 (wrap-multitext-slow
 	  ctx 
 	  (list top-text "" (get-score-text score count) extra)
-	  100 200 1400 80))))
+	  0 300 950 60))))
    
    (game-modify-update
     (lambda (t c) c)
@@ -774,31 +826,31 @@
     (game-modify-buttons
      (list
 
-      (image-button
-       "Play again"
-       (- default-button-x 350)
-       (- default-button-y 100)
-       #f
-       "feather-white-5b.png"
-       (lambda (c)
-         (play-sound "sound/button.wav")
-         (nightjar-explain-screen c)))
+      ;; (image-button
+      ;;  "Play again"
+      ;;  (- default-button-x 350)
+      ;;  (- default-button-y 100)
+      ;;  #f
+      ;;  "feather-white-5b.png"
+      ;;  (lambda (c)
+      ;;    (play-sound "sound/button.wav")
+      ;;    (nightjar-explain-screen c)))
       
       
-      (image-button
-       "Home"
-       default-button-x
-       (+ default-button-y 100)
-       #f
-       "feather-white-1.png"
-       (lambda (c)
-         (play-sound "sound/button.wav")
-         (nightjar-intro c)))
+      ;; (image-button
+      ;;  "Home"
+      ;;  default-button-x
+      ;;  (+ default-button-y 100)
+      ;;  #f
+      ;;  "feather-white-1.png"
+      ;;  (lambda (c)
+      ;;    (play-sound "sound/button.wav")
+      ;;    (nightjar-intro c)))
 
       (image-button
        "Project nightjar"
-       (+ default-button-x 350)
-       (- default-button-y 100)
+       default-button-x
+       default-button-y
        #f
        "feather-white-3.png"
        (lambda (c)
@@ -808,7 +860,7 @@
 
       ) c))))
 
-(set! ctx.font "normal 75pt effra heavy")
+(set! ctx.font "normal 75pt effra")
 (centre-text ctx "Loading..." 240)
 
 (load-images!

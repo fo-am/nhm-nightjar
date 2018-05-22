@@ -1,11 +1,11 @@
 @font-face {
     font-family: 'effra';
-    src: url('../fonts/Effra_Bd.ttf');
+    src: url('../fonts/Effra_Rg.ttf');
 }
 
 @font-face {
     font-family: 'effra heavy';
-    src: url('../fonts/Effra_He.ttf');
+    src: url('../fonts/Effra_Rg.ttf');
 }
 
 html, body {
@@ -14,7 +14,6 @@ html, body {
     font-size:  20;
     background: #000;
     cursor: url(images/mouse.png), default;
-    height: 100%;
     min-height: 100%;
 }
 
