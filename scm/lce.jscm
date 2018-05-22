@@ -316,6 +316,14 @@
 (define (in-circle? x y r xx yy)
   (< (dist-2d xx yy x y) r))
 
+(define (image-button-update! b mx my c)
+  (if (in-rect? (button-x b) (+ (button-y b) 20)
+                (button-w b) (+ (button-h b) 20)
+                mx my)
+      (let ((fn (button-callback b)))
+        (list #t (fn c)))
+      (list #f c)))
+
 (define (rect-button-update! b mx my c)
   (if (in-rect? (button-x b) (button-y b)
                 (button-w b) (button-h b)
@@ -336,7 +344,7 @@
    ((eq? (button-type b) "rect-button")
     (rect-button-update! b mx my c))
    ((eq? (button-type b) "image-button")
-    (rect-button-update! b mx my c))
+    (image-button-update! b mx my c))
    (else
     (circle-button-update! b mx my c))))
 

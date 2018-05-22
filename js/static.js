@@ -1045,6 +1045,14 @@ ret\n\
 (define (in-circle? x y r xx yy)\n\
   (< (dist-2d xx yy x y) r))\n\
 \n\
+(define (image-button-update! b mx my c)\n\
+  (if (in-rect? (button-x b) (+ (button-y b) 20)\n\
+                (button-w b) (+ (button-h b) 20)\n\
+                mx my)\n\
+      (let ((fn (button-callback b)))\n\
+        (list #t (fn c)))\n\
+      (list #f c)))\n\
+\n\
 (define (rect-button-update! b mx my c)\n\
   (if (in-rect? (button-x b) (button-y b)\n\
                 (button-w b) (button-h b)\n\
@@ -1065,7 +1073,7 @@ ret\n\
    ((eq? (button-type b) "rect-button")\n\
     (rect-button-update! b mx my c))\n\
    ((eq? (button-type b) "image-button")\n\
-    (rect-button-update! b mx my c))\n\
+    (image-button-update! b mx my c))\n\
    (else\n\
     (circle-button-update! b mx my c))))\n\
 \n\
@@ -1557,7 +1565,7 @@ ret\n\
   (set! ctx.font "35pt effra")\n\
   (let ((m (ctx.measureText txt)))\n\
     (ctx.fillText txt (- (/ screen-width 2) (/ m.width 2))\n\
-		  (- screen-height 70))))\n\
+		  (- screen-height 45))))\n\
 \n\
 (define (time-left c)\n\
   (* (- (game-time c)\n\
@@ -1615,8 +1623,8 @@ ret\n\
     (t.substring 1 t.length)))\n\
 \n\
 (define (nightjar-draw-clock ctx c)\n\
-  (let ((pos-x (- screen-width 200))\n\
-	(pos-y (- screen-height 270)))\n\
+  (let ((pos-x (- screen-width 170))\n\
+	(pos-y (- screen-height 240)))\n\
     (set! ctx.fillStyle bg-col)\n\
     (ctx.beginPath)\n\
     (ctx.moveTo pos-x pos-y)\n\
@@ -1731,7 +1739,7 @@ ret\n\
    (game-modify-render\n\
     (lambda (ctx)\n\
 \n\
-      (let ((osx 625) (osy 270))\n\
+      (let ((osx 625) (osy 300))\n\
 	(ctx.drawImage (find-image "foam-logo.png" image-lib) (+ 670 osx) (+ 560 osy))\n\
 	(ctx.drawImage (find-image "exeter.png" image-lib) (+ 890 osx) (+ 600 osy)))\n\
 \n\
@@ -1750,14 +1758,21 @@ ret\n\
 	""\n\
 	"Visit nightjar.exeter.ac.uk to find out more."\n\
 	)\n\
-       -50 100 1000 50))\n\
+       -50 130 1000 50)\n\
+\n\
+      (set! ctx.fillStyle highlight-col)\n\
+      (set! ctx.font "bold 35pt effra")\n\
+      (ctx.fillText "nightjar.exeter.ac.uk" 397 830) \n\
+      )\n\
+    \n\
+    \n\
     \n\
     (game-modify-buttons\n\
      (list\n\
       (image-button\n\
        "Home"\n\
        15\n\
-       (+ default-button-y 170)\n\
+       (+ default-button-y 200)\n\
        #f\n\
        "feather-white-1.png"\n\
        (lambda (c)\n\
@@ -1842,7 +1857,7 @@ ret\n\
       (nightjar-sprite (game-data c)))\n\
 \n\
      (set! ctx.fillStyle bg-col)\n\
-     (ctx.fillRect 0 (- screen-height 150) screen-width 150)\n\
+     (ctx.fillRect 0 (- screen-height 120) screen-width 120)\n\
 \n\
      (nightjar-draw-clock ctx c)\n\
 \n\
@@ -1901,7 +1916,7 @@ ret\n\
       (image-button\n\
        "Home"\n\
        15\n\
-       (+ default-button-y 170)\n\
+       (+ default-button-y 200)\n\
        #f\n\
        "feather-white-4-s.png"\n\
        (lambda (c)\n\
@@ -1967,7 +1982,7 @@ ret\n\
       (nightjar-sprite (game-data c)))\n\
 \n\
      (set! ctx.fillStyle bg-col)\n\
-     (ctx.fillRect 0 (- screen-height 150) screen-width 150)\n\
+     (ctx.fillRect 0 (- screen-height 120) screen-width 120)\n\
      (nightjar-bottom-text ctx reason)\n\
 \n\
      )\n\
@@ -1980,8 +1995,8 @@ ret\n\
 \n\
       (image-button\n\
        "Next"\n\
-       (- screen-width 210)\n\
-       (+ default-button-y 170) #f\n\
+       (- screen-width 145)\n\
+       (+ default-button-y 200) #f\n\
        "feather-white-4-s.png"\n\
        (lambda (c)\n\
          (play-sound "sound/button.wav")\n\
@@ -1993,13 +2008,12 @@ ret\n\
       (image-button\n\
        "Home"\n\
        15\n\
-       (+ default-button-y 170) #f\n\
-       "feather-white-3-s.png"\n\
+       (+ default-button-y 200)\n\
+       #f\n\
+       "feather-white-4-s.png"\n\
        (lambda (c)\n\
          (play-sound "sound/button.wav")\n\
-         ;; check end of game\n\
-         (nightjar-get-score c "")))\n\
-\n\
+         (nightjar-intro c)))\n\
 \n\
       ) c))))\n\
 \n\
@@ -2022,7 +2036,7 @@ ret\n\
       (nightjar-sprite (game-data c)))\n\
 \n\
      (set! ctx.fillStyle bg-col)\n\
-     (ctx.fillRect 0 (- screen-height 150) screen-width 150)\n\
+     (ctx.fillRect 0 (- screen-height 120) screen-width 120)\n\
      (let ((done (+ (- 5 (length (nightjar-images (game-data c)))) 1)))\n\
        (nightjar-bottom-text ctx (+ "Nightjar " done "/5 found in "\n\
 				    (print-trunc (/ (nightjar-score (game-data c)) 1000))\n\
@@ -2035,8 +2049,8 @@ ret\n\
      (list\n\
       (image-button\n\
        "Next"\n\
-       (- screen-width 210)\n\
-       (+ default-button-y 170) #f\n\
+       (- screen-width 145)\n\
+       (+ default-button-y 200) #f\n\
        "feather-white-3-s.png"\n\
        (lambda (c)\n\
          (play-sound "sound/button.wav")\n\
@@ -2048,7 +2062,7 @@ ret\n\
       (image-button\n\
        "Home"\n\
        15\n\
-       (+ default-button-y 170)\n\
+       (+ default-button-y 200)\n\
        #f\n\
        "feather-white-4-s.png"\n\
        (lambda (c)\n\
@@ -2059,14 +2073,14 @@ ret\n\
       ) c))))\n\
 \n\
 (define (non-spots-time c)\n\
-  (* game-time-allowed (- 5 (nightjar-found (game-data c)))))\n\
+  (* 1000 game-time-allowed (- 5 (nightjar-found (game-data c)))))\n\
 \n\
 (define (nightjar-get-score c reason)\n\
+  (msg (non-spots-time c))\n\
   (nightjar-finish \n\
    game\n\
-   (+ (/ (nightjar-total-score (game-data c))\n\
-	 (nightjar-found (game-data c)))\n\
-      (non-spots-time c))\n\
+   (/ (+ (nightjar-total-score (game-data c))\n\
+	 (non-spots-time c)) 5)\n\
    (ordered-list-search scores (nightjar-score (game-data c)))\n\
    (nightjar-found (game-data c))\n\
    reason))\n\

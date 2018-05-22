@@ -263,7 +263,7 @@
   (set! ctx.font "35pt effra")
   (let ((m (ctx.measureText txt)))
     (ctx.fillText txt (- (/ screen-width 2) (/ m.width 2))
-		  (- screen-height 70))))
+		  (- screen-height 45))))
 
 (define (time-left c)
   (* (- (game-time c)
@@ -321,8 +321,8 @@
     (t.substring 1 t.length)))
 
 (define (nightjar-draw-clock ctx c)
-  (let ((pos-x (- screen-width 200))
-	(pos-y (- screen-height 270)))
+  (let ((pos-x (- screen-width 170))
+	(pos-y (- screen-height 240)))
     (set! ctx.fillStyle bg-col)
     (ctx.beginPath)
     (ctx.moveTo pos-x pos-y)
@@ -437,7 +437,7 @@
    (game-modify-render
     (lambda (ctx)
 
-      (let ((osx 625) (osy 270))
+      (let ((osx 625) (osy 300))
 	(ctx.drawImage (find-image "foam-logo.png" image-lib) (+ 670 osx) (+ 560 osy))
 	(ctx.drawImage (find-image "exeter.png" image-lib) (+ 890 osx) (+ 600 osy)))
 
@@ -456,14 +456,21 @@
 	""
 	"Visit nightjar.exeter.ac.uk to find out more."
 	)
-       -50 100 1000 50))
+       -50 130 1000 50)
+
+      (set! ctx.fillStyle highlight-col)
+      (set! ctx.font "bold 35pt effra")
+      (ctx.fillText "nightjar.exeter.ac.uk" 397 830) 
+      )
+    
+    
     
     (game-modify-buttons
      (list
       (image-button
        "Home"
        15
-       (+ default-button-y 170)
+       (+ default-button-y 200)
        #f
        "feather-white-1.png"
        (lambda (c)
@@ -548,7 +555,7 @@
       (nightjar-sprite (game-data c)))
 
      (set! ctx.fillStyle bg-col)
-     (ctx.fillRect 0 (- screen-height 150) screen-width 150)
+     (ctx.fillRect 0 (- screen-height 120) screen-width 120)
 
      (nightjar-draw-clock ctx c)
 
@@ -607,7 +614,7 @@
       (image-button
        "Home"
        15
-       (+ default-button-y 170)
+       (+ default-button-y 200)
        #f
        "feather-white-4-s.png"
        (lambda (c)
@@ -673,7 +680,7 @@
       (nightjar-sprite (game-data c)))
 
      (set! ctx.fillStyle bg-col)
-     (ctx.fillRect 0 (- screen-height 150) screen-width 150)
+     (ctx.fillRect 0 (- screen-height 120) screen-width 120)
      (nightjar-bottom-text ctx reason)
 
      )
@@ -686,8 +693,8 @@
 
       (image-button
        "Next"
-       (- screen-width 210)
-       (+ default-button-y 170) #f
+       (- screen-width 145)
+       (+ default-button-y 200) #f
        "feather-white-4-s.png"
        (lambda (c)
          (play-sound "sound/button.wav")
@@ -699,13 +706,12 @@
       (image-button
        "Home"
        15
-       (+ default-button-y 170) #f
-       "feather-white-3-s.png"
+       (+ default-button-y 200)
+       #f
+       "feather-white-4-s.png"
        (lambda (c)
          (play-sound "sound/button.wav")
-         ;; check end of game
-         (nightjar-get-score c "")))
-
+         (nightjar-intro c)))
 
       ) c))))
 
@@ -728,7 +734,7 @@
       (nightjar-sprite (game-data c)))
 
      (set! ctx.fillStyle bg-col)
-     (ctx.fillRect 0 (- screen-height 150) screen-width 150)
+     (ctx.fillRect 0 (- screen-height 120) screen-width 120)
      (let ((done (+ (- 5 (length (nightjar-images (game-data c)))) 1)))
        (nightjar-bottom-text ctx (+ "Nightjar " done "/5 found in "
 				    (print-trunc (/ (nightjar-score (game-data c)) 1000))
@@ -741,8 +747,8 @@
      (list
       (image-button
        "Next"
-       (- screen-width 210)
-       (+ default-button-y 170) #f
+       (- screen-width 145)
+       (+ default-button-y 200) #f
        "feather-white-3-s.png"
        (lambda (c)
          (play-sound "sound/button.wav")
@@ -754,7 +760,7 @@
       (image-button
        "Home"
        15
-       (+ default-button-y 170)
+       (+ default-button-y 200)
        #f
        "feather-white-4-s.png"
        (lambda (c)
@@ -765,14 +771,14 @@
       ) c))))
 
 (define (non-spots-time c)
-  (* game-time-allowed (- 5 (nightjar-found (game-data c)))))
+  (* 1000 game-time-allowed (- 5 (nightjar-found (game-data c)))))
 
 (define (nightjar-get-score c reason)
+  (msg (non-spots-time c))
   (nightjar-finish 
    game
-   (+ (/ (nightjar-total-score (game-data c))
-	 (nightjar-found (game-data c)))
-      (non-spots-time c))
+   (/ (+ (nightjar-total-score (game-data c))
+	 (non-spots-time c)) 5)
    (ordered-list-search scores (nightjar-score (game-data c)))
    (nightjar-found (game-data c))
    reason))
