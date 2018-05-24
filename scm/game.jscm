@@ -458,7 +458,7 @@
 	""
 	"This game gathered data on how fast participants spotted nightjars."
 	""
-	"The research showed that predators which see in three colours (like humans and some primates) are better at spotting nightjars than predators that see in two colours (like mongooses). Prey camouflage and predator vision are in an evolutionary battle to spot each other and not be seen."
+	"The research showed that predators which see in three colours (like humans and some primates) are better at spotting nightjars than predators that see in two colours (like mongooses). Predators and prey are in an evolutionary battle to spot each other and not be seen."
 	""
 	"Visit nightjar.exeter.ac.uk to find out more."
 	)
@@ -466,7 +466,7 @@
 
       (set! ctx.fillStyle highlight-col)
       (set! ctx.font "bold 35pt effra")
-      (ctx.fillText "nightjar.exeter.ac.uk" 397 830) 
+      (ctx.fillText "nightjar.exeter.ac.uk" 397 780) 
       )
     
     
