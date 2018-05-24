@@ -317,8 +317,8 @@
   (< (dist-2d xx yy x y) r))
 
 (define (image-button-update! b mx my c)
-  (if (in-rect? (button-x b) (+ (button-y b) 20)
-                (button-w b) (+ (button-h b) 20)
+  (if (in-rect? (button-x b) (button-y b)
+                (+ (button-w b) 20) (+ (button-h b) 10)
                 mx my)
       (let ((fn (button-callback b)))
         (list #t (fn c)))

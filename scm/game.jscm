@@ -152,6 +152,12 @@
 	8729.94117647059 9061.44444444444 9381.625 9780 10360.2857142857 
 	11127.5555555556 12726.7894736842))
 
+;;(define (adder l r)
+;;  (cond 
+;;   ((null? l) r)
+;;   (else (+ (car l) (adder (cdr l) r)))))
+;;(display (/ (adder scores 0) (length scores)))(newline)
+
 ;; binary search
 (define (ordered-list-search l score)
   (define (_ start end)
@@ -798,8 +804,8 @@
 
 (define (low-score count score)
   (if (and (> count 0) (> score 50))
-      "The average is xx seconds."
-      "You need to spot some nightjars for a score!"))
+      "The average is 4.9 seconds."
+      "Would you like to play again?"))
 
 (define (get-score-text score count)
   (if (and (> count 0) (< score 50))

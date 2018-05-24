@@ -1046,8 +1046,8 @@ ret\n\
   (< (dist-2d xx yy x y) r))\n\
 \n\
 (define (image-button-update! b mx my c)\n\
-  (if (in-rect? (button-x b) (+ (button-y b) 20)\n\
-                (button-w b) (+ (button-h b) 20)\n\
+  (if (in-rect? (button-x b) (button-y b)\n\
+                (+ (button-w b) 20) (+ (button-h b) 10)\n\
                 mx my)\n\
       (let ((fn (button-callback b)))\n\
         (list #t (fn c)))\n\
@@ -1453,6 +1453,12 @@ ret\n\
 	7712.42857142857 7863.38888888889 8034.8 8214.9 8433.16666666667 \n\
 	8729.94117647059 9061.44444444444 9381.625 9780 10360.2857142857 \n\
 	11127.5555555556 12726.7894736842))\n\
+\n\
+;;(define (adder l r)\n\
+;;  (cond \n\
+;;   ((null? l) r)\n\
+;;   (else (+ (car l) (adder (cdr l) r)))))\n\
+;;(display (/ (adder scores 0) (length scores)))(newline)\n\
 \n\
 ;; binary search\n\
 (define (ordered-list-search l score)\n\
@@ -2100,8 +2106,8 @@ ret\n\
 \n\
 (define (low-score count score)\n\
   (if (and (> count 0) (> score 50))\n\
-      "The average is xx seconds."\n\
-      "You need to spot some nightjars for a score!"))\n\
+      "The average is 4.9 seconds."\n\
+      "Would you like to play again?"))\n\
 \n\
 (define (get-score-text score count)\n\
   (if (and (> count 0) (< score 50))\n\
