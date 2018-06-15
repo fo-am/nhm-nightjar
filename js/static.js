@@ -1762,13 +1762,13 @@ ret\n\
 	""\n\
 	"The research showed that predators which see in three colours (like humans and some other primates) are better at spotting nightjars than predators that see in two colours (like mongooses). Predators and prey are in an evolutionary battle to spot each other and not be seen."\n\
 	""\n\
-	"Visit nightjar.exeter.ac.uk to find out more."\n\
+	"Visit www.sensoryecology.com to find out more."\n\
 	)\n\
        -50 130 1000 50)\n\
 \n\
-      (set! ctx.fillStyle highlight-col)\n\
+      (set! ctx.fillStyle "#fff")\n\
       (set! ctx.font "bold 35pt effra")\n\
-      (ctx.fillText "nightjar.exeter.ac.uk" 397 830) \n\
+      (ctx.fillText "www.sensoryecology.com" 397 830) \n\
       )\n\
     \n\
     \n\
@@ -2062,7 +2062,7 @@ ret\n\
          (play-sound "sound/button.wav")\n\
          ;; check end of game\n\
          (if (eq? (length (nightjar-images (game-data c))) 1)\n\
-             (nightjar-get-score c "Well done!")\n\
+             (nightjar-get-score c "Well done! ")\n\
              (nightjar-new-game-reset-timer 1 c))))\n\
       \n\
       (image-button\n\
@@ -2122,8 +2122,8 @@ ret\n\
    (lambda (ctx)     \n\
      (let ((top-text reason))\n\
        (if (zero? count)\n\
-	 (set! top-text (+ top-text " You didn\'t find any nightjars..."))\n\
-	 (set! top-text (+ top-text " You found " count "/5 nightjars in an average of " (trunc (/ av 1000)) " seconds.")))\n\
+	 (set! top-text (+ top-text "You didn\'t find any nightjars..."))\n\
+	 (set! top-text (+ top-text "You found " count "/5 nightjars in an average of " (trunc (/ av 1000)) " seconds.")))\n\
        (let ((extra ""))\n\
 	 (when (not (zero? count)) (set! extra (score-to-text score)))\n\
 	 \n\
